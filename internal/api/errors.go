@@ -19,13 +19,18 @@ func statusForError(err error) int {
 		errors.Is(err, service.ErrDailyCapExceeded):
 		return http.StatusPaymentRequired
 	case errors.Is(err, service.ErrListingNotOpen),
-		errors.Is(err, service.ErrOutOfStock):
+		errors.Is(err, service.ErrOutOfStock),
+		errors.Is(err, service.ErrActiveAuctionExists),
+		errors.Is(err, service.ErrItemNotAvailable),
+		errors.Is(err, service.ErrAuctionNotActive),
+		errors.Is(err, service.ErrAuctionEnded):
 		return http.StatusConflict
 	case errors.Is(err, service.ErrInvalidAmount),
 		errors.Is(err, service.ErrSelfPurchase),
 		errors.Is(err, service.ErrSelfBid),
 		errors.Is(err, service.ErrItemNotOwned),
 		errors.Is(err, service.ErrLegendaryNeedsAuction),
+		errors.Is(err, service.ErrNotLegendary),
 		errors.Is(err, service.ErrBidTooLow),
 		errors.Is(err, service.ErrCancelHighestBid),
 		errors.Is(err, service.ErrInsufficientReserved):

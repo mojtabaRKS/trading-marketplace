@@ -22,9 +22,10 @@ const (
 	AuctionSettled   = "settled"
 	AuctionCancelled = "cancelled"
 
-	BidActive   = "active"
-	BidReleased = "released"
-	BidWon      = "won"
+	BidActive    = "active"
+	BidReleased  = "released"
+	BidWon       = "won"
+	BidCancelled = "cancelled"
 
 	TxReserve = "reserve"
 	TxRelease = "release"

@@ -24,6 +24,12 @@ func NewRouter(deps Deps) *gin.Engine {
 	r.POST("/listings", createListing(deps))
 	r.POST("/listings/:id/buy", buyListing(deps))
 
+	r.POST("/auctions", createAuction(deps))
+	r.GET("/auctions/:id", getAuction(deps))
+	r.POST("/auctions/:id/bids", placeBid(deps))
+	r.GET("/auctions/:id/bids", listBids(deps))
+	r.DELETE("/auctions/:id/bids/:bidId", cancelBid(deps))
+
 	return r
 }
 

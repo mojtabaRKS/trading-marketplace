@@ -54,10 +54,12 @@ func runServe(ctx context.Context) error {
 
 	wallets := service.NewWalletService(db)
 	listings := service.NewListingService(db, wallets)
+	auctions := service.NewAuctionService(db, wallets, cfg.AuctionWindow, cfg.AuctionExtension)
 
 	router := api.NewRouter(api.Deps{
 		Logger:   logger,
 		Listings: listings,
+		Auctions: auctions,
 	})
 	srv := api.NewServer(":"+cfg.HTTPPort, router, logger)
 

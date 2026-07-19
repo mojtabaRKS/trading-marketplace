@@ -19,4 +19,10 @@ var (
 	ErrOutOfStock            = errors.New("item is out of stock")
 	ErrListingNotOpen        = errors.New("listing is not open")
 	ErrSelfPurchase          = errors.New("guild cannot buy its own listing")
+
+	ErrNotLegendary        = errors.New("only legendary items can be auctioned")
+	ErrItemNotAvailable    = errors.New("item is not available")
+	ErrActiveAuctionExists = errors.New("item already has an active auction")
+	ErrAuctionNotActive    = errors.New("auction is not active")
+	ErrAuctionEnded        = errors.New("auction has ended")
 )

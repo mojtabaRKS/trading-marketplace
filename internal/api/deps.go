@@ -11,4 +11,5 @@ import (
 type Deps struct {
 	Logger   *slog.Logger
 	Listings *service.ListingService
+	Auctions *service.AuctionService
 }
