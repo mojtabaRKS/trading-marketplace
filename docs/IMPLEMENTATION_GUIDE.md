@@ -156,15 +156,20 @@ Each step lists **Goal**, **Tasks**, and **Acceptance criteria**. Do them in ord
 - Seed script with a few guilds, common/rare/legendary items.
 **Acceptance:** Migrations apply cleanly; seed data loads; constraints reject duplicate active auctions.
 
-### Step 3 — Domain layer (pure logic + unit tests)
-**Goal:** Business rules independent of DB/HTTP.
+### Step 3 — Service layer: pure business rules (+ unit tests)
+> Architecture note: this project is **layered** (not DDD), so the "domain" logic lives in
+> `internal/service/` as pure, I/O-free functions rather than a separate `domain/` package.
+> See `docs/ADR.md` (ADR-001) for the layered-vs-DDD trade-off.
+
+**Goal:** Encode the business rules as pure functions in `internal/service/`, independent of DB/HTTP.
 **Tasks:**
-- Value objects: `Money` (integer minor units), item tiers, statuses.
-- Wallet logic: `Available = Total − Reserved`; reserve/release/debit with guards.
-- Bid rules: min +5% increment, no self-bid, cannot cancel while highest bidder.
-- Auction rules: single active auction, anti-snipe extension (5 min), winner selection.
-- Daily cap check helper.
-**Acceptance:** Unit tests cover each business rule (happy + rejection paths). No I/O in domain.
+- Rule helpers (integer minor units; no floats): `AvailableBalance = Total − Reserved`,
+  reserve/solvency guards.
+- Bid rules: min **+5%** increment, no self-bid, cannot cancel while highest bidder.
+- Auction rules: anti-snipe extension (5 min), auction-ended check.
+- Daily cap check helper (cap `0` = unlimited).
+- Sentinel domain errors (`ErrInsufficientFunds`, `ErrSelfBid`, `ErrBidTooLow`, ...).
+**Acceptance:** Unit tests cover each rule (happy + rejection paths). No I/O in `service/` rule code.
 
 ### Step 4 — Wallet service with traceable transactions
 **Goal:** Reliable, auditable money movements.

@@ -9,7 +9,7 @@ alwaysApply: false
 - Wrap errors with context: `fmt.Errorf("do thing: %w", err)`; never swallow errors.
 - Use `slog` for logging (structured key/values), not `fmt.Println`/`log`.
 - Pass `context.Context` as the first arg through service and repo calls.
-- Keep handlers thin; business logic lives in `service/`, pure rules in `domain/`.
+- Keep handlers thin; all business logic and pure rules live in `service/` (layered, no `domain/`).
 
 ## Transactions & concurrency
 - Do multi-step money/asset changes inside a single GORM transaction (`db.Transaction(...)`).
@@ -18,7 +18,7 @@ alwaysApply: false
   not just in-memory checks.
 
 ## Testing
-- Unit-test `domain/` rules (happy + rejection paths) with no I/O.
+- Unit-test `service/` pure rules (happy + rejection paths) with no I/O.
 - Integration-test critical flows; run `go test -race ./...`.
 
 ```go
