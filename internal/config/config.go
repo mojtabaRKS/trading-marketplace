@@ -37,6 +37,16 @@ type Config struct {
 
 	// Background workers
 	SettleInterval time.Duration
+
+	// Oracle price feed
+	OraclePollInterval    time.Duration
+	OracleTimeout         time.Duration
+	OracleMaxRetries      int
+	OracleBackoff         time.Duration
+	OracleBreakerTrip     int
+	OracleBreakerCooldown time.Duration
+	OracleMaxPrice        int64
+	OracleMaxDeviation    float64
 }
 
 // Load reads configuration using Viper: defaults, then an optional .env file,
@@ -74,6 +84,15 @@ func Load() (Config, error) {
 		AuctionWindow:    v.GetDuration("AUCTION_WINDOW"),
 		AuctionExtension: v.GetDuration("AUCTION_EXTENSION"),
 		SettleInterval:   v.GetDuration("SETTLE_INTERVAL"),
+
+		OraclePollInterval:    v.GetDuration("ORACLE_POLL_INTERVAL"),
+		OracleTimeout:         v.GetDuration("ORACLE_TIMEOUT"),
+		OracleMaxRetries:      v.GetInt("ORACLE_MAX_RETRIES"),
+		OracleBackoff:         v.GetDuration("ORACLE_BACKOFF"),
+		OracleBreakerTrip:     v.GetInt("ORACLE_BREAKER_TRIP"),
+		OracleBreakerCooldown: v.GetDuration("ORACLE_BREAKER_COOLDOWN"),
+		OracleMaxPrice:        v.GetInt64("ORACLE_MAX_PRICE"),
+		OracleMaxDeviation:    v.GetFloat64("ORACLE_MAX_DEVIATION"),
 	}, nil
 }
 
@@ -92,6 +111,15 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("AUCTION_WINDOW", "24h")
 	v.SetDefault("AUCTION_EXTENSION", "5m")
 	v.SetDefault("SETTLE_INTERVAL", "10s")
+
+	v.SetDefault("ORACLE_POLL_INTERVAL", "30s")
+	v.SetDefault("ORACLE_TIMEOUT", "2s")
+	v.SetDefault("ORACLE_MAX_RETRIES", 2)
+	v.SetDefault("ORACLE_BACKOFF", "100ms")
+	v.SetDefault("ORACLE_BREAKER_TRIP", 3)
+	v.SetDefault("ORACLE_BREAKER_COOLDOWN", "15s")
+	v.SetDefault("ORACLE_MAX_PRICE", 1_000_000_000)
+	v.SetDefault("ORACLE_MAX_DEVIATION", 0)
 }
 
 // DSN returns the PostgreSQL key/value connection string (used by GORM).

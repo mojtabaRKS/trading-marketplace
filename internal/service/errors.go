@@ -25,4 +25,8 @@ var (
 	ErrActiveAuctionExists = errors.New("item already has an active auction")
 	ErrAuctionNotActive    = errors.New("auction is not active")
 	ErrAuctionEnded        = errors.New("auction has ended")
+
+	ErrOraclePriceInvalid     = errors.New("oracle price must be positive")
+	ErrOraclePriceImplausible = errors.New("oracle price is implausible")
+	ErrPriceUnavailable       = errors.New("no validated price available for item")
 )

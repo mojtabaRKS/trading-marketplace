@@ -13,7 +13,8 @@ import (
 // statusForError maps a domain error to an HTTP status code.
 func statusForError(err error) int {
 	switch {
-	case errors.Is(err, service.ErrNotFound):
+	case errors.Is(err, service.ErrNotFound),
+		errors.Is(err, service.ErrPriceUnavailable):
 		return http.StatusNotFound
 	case errors.Is(err, service.ErrInsufficientFunds),
 		errors.Is(err, service.ErrDailyCapExceeded):

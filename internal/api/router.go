@@ -30,6 +30,8 @@ func NewRouter(deps Deps) *gin.Engine {
 	r.GET("/auctions/:id/bids", listBids(deps))
 	r.DELETE("/auctions/:id/bids/:bidId", cancelBid(deps))
 
+	r.GET("/prices/:id", getPrice(deps))
+
 	return r
 }
 
