@@ -3,7 +3,9 @@
 Status: living document (updated as the build progresses).
 Context: Backend challenge — a secure marketplace for trading (Common/Rare) and
 auctioning (Legendary) items, resilient to duplicates, unreliable services, and
-concurrency. See `docs/IMPLEMENTATION_GUIDE.md` for the full brief.
+concurrency. See `docs/IMPLEMENTATION_GUIDE.md` for the full brief and
+`docs/DESIGN_FA.md` for a Persian write-up of the trade-offs, double-spend
+guarantees, business-rule compliance, and Oracle-failure handling.
 
 Each decision below lists **Decision**, **Why**, **Trade-offs**, and **Alternatives considered**.
 

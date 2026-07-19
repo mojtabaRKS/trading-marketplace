@@ -6,7 +6,8 @@ Guilds trade **Common/Rare** items via fixed-price limit orders and compete for 
 duplicate requests, and an unreliable external price feed.
 
 > Full brief: [`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md) ·
-> Design rationale & trade-offs: [`docs/ADR.md`](docs/ADR.md)
+> Design rationale & trade-offs: [`docs/ADR.md`](docs/ADR.md) ·
+> Persian design write-up (مستند فارسی): [`docs/DESIGN_FA.md`](docs/DESIGN_FA.md)
 
 ---
 
