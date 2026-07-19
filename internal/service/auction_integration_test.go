@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -143,6 +144,62 @@ func TestAuctionBidFlow(t *testing.T) {
 	db.First(&cancelled, bidA.ID)
 	if cancelled.Status != repository.BidCancelled {
 		t.Fatalf("bid A status = %s, want cancelled", cancelled.Status)
+	}
+}
+
+// TestBidConcurrentConsistency fires two competing bids at once. Whatever the
+// interleaving, exactly one ends up highest, only that bidder's funds stay
+// reserved, and the loser is never over-committed.
+func TestBidConcurrentConsistency(t *testing.T) {
+	db := setupAuction(t)
+	svc := NewAuctionService(db, NewWalletService(db), 24*time.Hour, 5*time.Minute)
+	ctx := context.Background()
+
+	auction, err := svc.CreateAuction(ctx, auSeller, auItem)
+	if err != nil {
+		t.Fatalf("create auction: %v", err)
+	}
+
+	const lowBid, highBid = 1000, 2000
+	var wg sync.WaitGroup
+	errsCh := make(chan error, 2)
+	bids := map[uint64]int64{auBidderA: lowBid, auBidderB: highBid}
+	for bidder, amount := range bids {
+		wg.Add(1)
+		go func(bidder uint64, amount int64) {
+			defer wg.Done()
+			_, err := svc.PlaceBid(ctx, auction.ID, bidder, amount)
+			errsCh <- err
+		}(bidder, amount)
+	}
+	wg.Wait()
+	close(errsCh)
+
+	// Any error must be an expected business rejection (loser placed too low).
+	for err := range errsCh {
+		if err != nil && !errors.Is(err, ErrBidTooLow) {
+			t.Fatalf("unexpected bid error: %v", err)
+		}
+	}
+
+	// The high bid must be the winner; the low bidder holds no reserve.
+	if r := reservedOf(t, db, auBidderB); r != highBid {
+		t.Fatalf("high bidder reserved = %d, want %d", r, highBid)
+	}
+	if r := reservedOf(t, db, auBidderA); r != 0 {
+		t.Fatalf("low bidder reserved = %d, want 0 (no over-commit)", r)
+	}
+
+	var got repository.Auction
+	db.First(&got, auction.ID)
+	if got.HighestBidID == nil {
+		t.Fatal("auction has no highest bid")
+	}
+	var highest repository.Bid
+	db.First(&highest, *got.HighestBidID)
+	if highest.BidderGuildID != auBidderB || highest.Amount != highBid {
+		t.Fatalf("highest bid = guild %d amount %d, want guild %d amount %d",
+			highest.BidderGuildID, highest.Amount, auBidderB, highBid)
 	}
 }
 

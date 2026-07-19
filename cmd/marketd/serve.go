@@ -64,6 +64,7 @@ func runServe(ctx context.Context) error {
 
 	router := api.NewRouter(api.Deps{
 		Logger:   logger,
+		DB:       db,
 		Listings: listings,
 		Auctions: auctions,
 		Oracle:   oracles,

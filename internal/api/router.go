@@ -21,15 +21,20 @@ func NewRouter(deps Deps) *gin.Engine {
 
 	r.GET("/healthz", healthz)
 
-	r.POST("/listings", createListing(deps))
-	r.POST("/listings/:id/buy", buyListing(deps))
+	// State-changing endpoints are guarded by the idempotency middleware so
+	// retries/duplicates cannot cause a double effect.
+	mutating := r.Group("")
+	if deps.DB != nil {
+		mutating.Use(middleware.Idempotency(deps.DB, deps.Logger))
+	}
+	mutating.POST("/listings", createListing(deps))
+	mutating.POST("/listings/:id/buy", buyListing(deps))
+	mutating.POST("/auctions", createAuction(deps))
+	mutating.POST("/auctions/:id/bids", placeBid(deps))
+	mutating.DELETE("/auctions/:id/bids/:bidId", cancelBid(deps))
 
-	r.POST("/auctions", createAuction(deps))
 	r.GET("/auctions/:id", getAuction(deps))
-	r.POST("/auctions/:id/bids", placeBid(deps))
 	r.GET("/auctions/:id/bids", listBids(deps))
-	r.DELETE("/auctions/:id/bids/:bidId", cancelBid(deps))
-
 	r.GET("/prices/:id", getPrice(deps))
 
 	return r
