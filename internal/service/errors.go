@@ -12,4 +12,11 @@ var (
 	ErrBidTooLow            = errors.New("bid must be at least 5% above the current highest bid")
 	ErrCancelHighestBid     = errors.New("cannot cancel bid while highest bidder")
 	ErrDailyCapExceeded     = errors.New("daily purchase cap exceeded")
+
+	ErrNotFound              = errors.New("resource not found")
+	ErrItemNotOwned          = errors.New("item is not owned by the seller")
+	ErrLegendaryNeedsAuction = errors.New("legendary items must be sold via auction")
+	ErrOutOfStock            = errors.New("item is out of stock")
+	ErrListingNotOpen        = errors.New("listing is not open")
+	ErrSelfPurchase          = errors.New("guild cannot buy its own listing")
 )

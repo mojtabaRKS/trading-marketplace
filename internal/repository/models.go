@@ -30,6 +30,10 @@ const (
 	TxRelease = "release"
 	TxDebit   = "debit"
 	TxCredit  = "credit"
+
+	RefListing = "listing"
+	RefAuction = "auction"
+	RefBid     = "bid"
 )
 
 // Guild is a market participant with a wallet and a daily purchase cap.

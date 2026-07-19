@@ -11,6 +11,7 @@ import (
 	"github.com/herotech/market-dragon/internal/api"
 	"github.com/herotech/market-dragon/internal/infra/database"
 	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/service"
 )
 
 func serveCmd() *cobra.Command {
@@ -42,7 +43,7 @@ func runServe(ctx context.Context) error {
 	}
 
 	repos := repository.New(db)
-	_ = repos // wired into services in later steps
+	_ = repos // reserved for future repository-backed services
 
 	if cfg.Seed {
 		if err := repository.Seed(db); err != nil {
@@ -51,7 +52,13 @@ func runServe(ctx context.Context) error {
 		logger.Info("seed data loaded")
 	}
 
-	router := api.NewRouter(logger)
+	wallets := service.NewWalletService(db)
+	listings := service.NewListingService(db, wallets)
+
+	router := api.NewRouter(api.Deps{
+		Logger:   logger,
+		Listings: listings,
+	})
 	srv := api.NewServer(":"+cfg.HTTPPort, router, logger)
 
 	errCh := make(chan error, 1)
