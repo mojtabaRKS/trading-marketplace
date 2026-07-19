@@ -240,17 +240,17 @@ Each step lists **Goal**, **Tasks**, and **Acceptance criteria**. Do them in ord
 ---
 
 ## Cross-cutting checklist (verify before submitting)
-- [ ] Legendary uniqueness enforced at DB level (no duplicate sale possible).
-- [ ] Wallet never goes negative; `Available = Total − Reserved` always holds.
-- [ ] Daily purchase cap enforced per guild.
-- [ ] +5% bid rule, no self-bid, cancel-only-if-not-highest.
-- [ ] One active auction per legendary (partial unique index).
-- [ ] Anti-snipe 5-min extension works.
-- [ ] All money movements recorded in ledger and reconcile.
-- [ ] Oracle failures (slow/zero/negative/wrong) handled gracefully.
-- [ ] Idempotent state-changing endpoints.
-- [ ] Passes `go test -race ./...`.
-- [ ] README + Docker Compose + ADR present.
+- [x] Legendary uniqueness enforced at DB level (no duplicate sale possible).
+- [x] Wallet never goes negative; `Available = Total − Reserved` always holds.
+- [x] Daily purchase cap enforced per guild.
+- [x] +5% bid rule, no self-bid, cancel-only-if-not-highest.
+- [x] One active auction per legendary (partial unique index).
+- [x] Anti-snipe 5-min extension works.
+- [x] All money movements recorded in ledger and reconcile.
+- [x] Oracle failures (slow/zero/negative/wrong) handled gracefully.
+- [x] Idempotent state-changing endpoints.
+- [x] Passes `go test -race ./...`.
+- [x] README + Docker Compose + ADR present.
 
 ---
 

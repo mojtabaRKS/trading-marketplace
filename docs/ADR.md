@@ -29,7 +29,7 @@ Business rules live in `service/`; `repository/` holds anemic GORM models.
 - **DDD** (rich aggregates like `Auction.PlaceBid`, value objects `Money`, domain events):
   best for large, evolving domains; adds a domain package and model↔entity mapping. Overkill here.
 - **Hexagonal/ports-and-adapters**: cleaner test seams via ports, but more indirection than
-  this scope warrants. We keep a single port (`oracle.Port`) where an external boundary truly exists.
+  this scope warrants. We keep a single port (`oracle.Source`) where an external boundary truly exists.
 
 ---
 
@@ -102,7 +102,8 @@ startup and via `marketd migrate`.
 - Partial unique index `uniq_active_auction_per_item` → one active auction per item.
 - CHECK `chk_wallet_nonneg` → `total ≥ 0 AND reserved ≥ 0 AND reserved ≤ total`.
 - CHECK constraints for tiers/statuses, positive prices/bids, non-negative stock/spend.
-- Row locks (`FOR UPDATE`) around wallet/asset mutations (in the service layer, upcoming steps).
+- Row locks (`FOR UPDATE`) around wallet/asset mutations in the service layer (wallets, listings,
+  items, auctions, bids).
 
 **Why.** The database is the only place that is correct under concurrency and duplicate
 requests. App-level checks alone race.
@@ -155,13 +156,81 @@ conflict. Inside the Compose network the app still reaches `db:5432`.
 
 ---
 
-## Planned decisions (to be recorded as implemented)
+## ADR-009 — Auction settlement via background worker
 
-- **Idempotency**: `Idempotency-Key` header + `idempotency_keys` table storing replayed
-  responses for state-changing endpoints.
-- **Oracle resilience**: `oracle.Port` behind timeout + retry/backoff + circuit breaker;
-  validate prices (reject zero/negative), keep last-known-good.
-- **Auction settlement**: background worker with per-auction row lock for exactly-once settlement.
+**Decision.** A `SettlementWorker` ticker (`SETTLE_INTERVAL`, default 10s) calls
+`AuctionService.SettleDue`, which settles each expired active auction in its own transaction
+with the auction row locked (`FOR UPDATE`). With a highest bid, the winner's reservation is
+converted to a spend (`SettleReserved`), the seller is credited, and the item transfers; with
+no bids the item returns to Available.
+
+**Why.** Auctions must close deterministically without a client request. Locking the auction row
+and no-oping on already-settled auctions makes settlement **idempotent** and safe if several
+workers (or ticks) run concurrently.
+
+**Trade-offs.**
+- Settlement latency is bounded by the tick interval, not instant at `ends_at`.
+- A single-process ticker is not HA; multiple instances are safe (row lock) but do redundant scans.
+
+**Alternatives considered.**
+- **Settle lazily on read**: simpler, but an unread auction never closes and funds stay reserved.
+- **Per-auction scheduled job/queue**: more precise timing, more infrastructure than the scope needs.
+
+---
+
+## ADR-010 — Oracle resilience: resilient client + last-known-good
+
+**Decision.** The external feed is modelled as `oracle.Source`. A `ResilientClient` wraps it with
+a per-attempt **timeout**, bounded **exponential-backoff retries**, and a **circuit breaker**
+(fails fast with `ErrCircuitOpen` when tripped). `OracleService` **validates** every value
+(reject zero/negative, above a plausibility ceiling, or large deviation), persists only accepted
+prices to `oracle_prices`, and keeps an in-memory **last-known-good** cache warmed from the DB on
+startup. A bad or missing feed never overwrites good data.
+
+**Why.** The brief requires tolerating slow/wrong/zero/negative upstream responses without
+corrupting state or crashing. Timeout+retry+breaker prevents cascading slowness; validation +
+last-known-good preserves a usable price at all times.
+
+**Trade-offs.**
+- Last-known-good can be stale during a prolonged outage (no freshness SLA enforced).
+- Breaker/validation thresholds are static config, not adaptive.
+
+**Alternatives considered.**
+- **Naive direct calls**: a slow upstream would block request paths; rejected.
+- **Reject-and-fail on bad data**: violates the "stay reliable" requirement; rejected.
+
+---
+
+## ADR-011 — Idempotency via claim-and-replay
+
+**Decision.** State-changing endpoints accept an `Idempotency-Key` header. The middleware
+"claims" the key with a unique `INSERT ... ON CONFLICT DO NOTHING`; the winner runs the handler
+and records the response for replay. A concurrent duplicate that loses the claim sees the
+in-flight row and gets `409`; a completed key replays the stored response; a key reused with a
+different request body is rejected with `409`.
+
+**Why.** Retries and duplicate submissions must not cause a double effect (double buy / double
+bid). The unique insert makes "at most one execution per key" a database guarantee, correct even
+under concurrency.
+
+**Trade-offs.**
+- If the process dies after the business commit but before recording the response, the key stays
+  in-flight; a TTL/sweeper would be needed for production (not implemented).
+- Stored responses assume JSON; large bodies grow the table (no GC here).
+
+**Alternatives considered.**
+- **App-level de-dup map**: not durable, not multi-instance safe; rejected.
+- **Natural idempotency only** (rely on DB unique constraints): covers asset uniqueness but not
+  arbitrary duplicate POSTs; the key layer is more general.
+
+---
+
+## Known trade-off — daily purchase cap and auctions
+
+The per-guild daily purchase cap is enforced on **limit-order buys**. It is intentionally **not**
+re-checked at auction settlement: placing a bid reserves the funds (the real commitment), and the
+winner simply pays from that reservation. Counting auction wins toward the daily cap would require
+enforcing the cap at bid time against reserved funds. Documented here as a deliberate scope cut.
 
 ---
 
