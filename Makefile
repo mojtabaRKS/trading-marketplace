@@ -19,6 +19,11 @@ run:
 test:
 	go test -race ./...
 
+# Integration tests require a running Postgres (see docker compose / .env).
+test-integration:
+	DB_HOST=localhost DB_PORT=5433 DB_USER=marketd DB_PASSWORD=marketd DB_NAME=marketd DB_SSLMODE=disable \
+		go test -tags integration -race ./...
+
 tidy:
 	go mod tidy
 

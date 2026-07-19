@@ -19,14 +19,31 @@ func EnsurePositive(amount int64) error {
 	return nil
 }
 
-// EnsureCanReserve verifies a positive amount can be reserved against the wallet
-// (available balance must cover it).
-func EnsureCanReserve(total, reserved, amount int64) error {
+// EnsureSufficientAvailable verifies a positive amount is covered by the wallet's
+// available balance.
+func EnsureSufficientAvailable(total, reserved, amount int64) error {
 	if err := EnsurePositive(amount); err != nil {
 		return err
 	}
 	if AvailableBalance(total, reserved) < amount {
 		return ErrInsufficientFunds
+	}
+	return nil
+}
+
+// EnsureCanReserve verifies a positive amount can be reserved against the wallet
+// (available balance must cover it).
+func EnsureCanReserve(total, reserved, amount int64) error {
+	return EnsureSufficientAvailable(total, reserved, amount)
+}
+
+// EnsureCanRelease verifies a positive amount can be released from the reserve.
+func EnsureCanRelease(reserved, amount int64) error {
+	if err := EnsurePositive(amount); err != nil {
+		return err
+	}
+	if reserved < amount {
+		return ErrInsufficientReserved
 	}
 	return nil
 }
