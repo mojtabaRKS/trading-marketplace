@@ -1,47 +1,106 @@
+// Package config loads runtime configuration from a .env file and environment
+// variables via Viper. Precedence: environment variable > .env file > default.
 package config
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/kelseyhightower/envconfig"
+	"github.com/spf13/viper"
 )
 
-// Config holds all runtime configuration, loaded from environment variables.
+// Config holds all runtime configuration.
 type Config struct {
 	// HTTP server
-	HTTPPort        string        `envconfig:"HTTP_PORT" default:"8080"`
-	ShutdownTimeout time.Duration `envconfig:"SHUTDOWN_TIMEOUT" default:"10s"`
+	HTTPPort        string
+	ShutdownTimeout time.Duration
 
 	// Database
-	DBHost     string `envconfig:"DB_HOST" default:"localhost"`
-	DBPort     string `envconfig:"DB_PORT" default:"5432"`
-	DBUser     string `envconfig:"DB_USER" default:"marketd"`
-	DBPassword string `envconfig:"DB_PASSWORD" default:"marketd"`
-	DBName     string `envconfig:"DB_NAME" default:"marketd"`
-	DBSSLMode  string `envconfig:"DB_SSLMODE" default:"disable"`
+	DBHost     string
+	DBPort     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+	DBSSLMode  string
 
 	// Logging
-	LogLevel string `envconfig:"LOG_LEVEL" default:"info"`
+	LogLevel string
+
+	// Migrations / seeding
+	AutoMigrate bool
+	Seed        bool
 
 	// Auction defaults
-	AuctionWindow    time.Duration `envconfig:"AUCTION_WINDOW" default:"24h"`
-	AuctionExtension time.Duration `envconfig:"AUCTION_EXTENSION" default:"5m"`
+	AuctionWindow    time.Duration
+	AuctionExtension time.Duration
 }
 
-// Load reads configuration from the environment.
+// Load reads configuration using Viper: defaults, then an optional .env file,
+// then environment variables (which take precedence).
 func Load() (Config, error) {
-	var c Config
-	if err := envconfig.Process("", &c); err != nil {
-		return Config{}, fmt.Errorf("load config: %w", err)
+	v := viper.New()
+
+	setDefaults(v)
+
+	// Optional .env file in the working directory. Absence is not an error.
+	v.SetConfigName(".env")
+	v.SetConfigType("env")
+	v.AddConfigPath(".")
+	if err := v.ReadInConfig(); err != nil {
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFound) {
+			return Config{}, fmt.Errorf("read .env: %w", err)
+		}
 	}
-	return c, nil
+
+	v.AutomaticEnv()
+
+	return Config{
+		HTTPPort:         v.GetString("HTTP_PORT"),
+		ShutdownTimeout:  v.GetDuration("SHUTDOWN_TIMEOUT"),
+		DBHost:           v.GetString("DB_HOST"),
+		DBPort:           v.GetString("DB_PORT"),
+		DBUser:           v.GetString("DB_USER"),
+		DBPassword:       v.GetString("DB_PASSWORD"),
+		DBName:           v.GetString("DB_NAME"),
+		DBSSLMode:        v.GetString("DB_SSLMODE"),
+		LogLevel:         v.GetString("LOG_LEVEL"),
+		AutoMigrate:      v.GetBool("AUTO_MIGRATE"),
+		Seed:             v.GetBool("SEED"),
+		AuctionWindow:    v.GetDuration("AUCTION_WINDOW"),
+		AuctionExtension: v.GetDuration("AUCTION_EXTENSION"),
+	}, nil
 }
 
-// DSN returns the PostgreSQL connection string.
+func setDefaults(v *viper.Viper) {
+	v.SetDefault("HTTP_PORT", "8080")
+	v.SetDefault("SHUTDOWN_TIMEOUT", "10s")
+	v.SetDefault("DB_HOST", "localhost")
+	v.SetDefault("DB_PORT", "5432")
+	v.SetDefault("DB_USER", "marketd")
+	v.SetDefault("DB_PASSWORD", "marketd")
+	v.SetDefault("DB_NAME", "marketd")
+	v.SetDefault("DB_SSLMODE", "disable")
+	v.SetDefault("LOG_LEVEL", "info")
+	v.SetDefault("AUTO_MIGRATE", true)
+	v.SetDefault("SEED", false)
+	v.SetDefault("AUCTION_WINDOW", "24h")
+	v.SetDefault("AUCTION_EXTENSION", "5m")
+}
+
+// DSN returns the PostgreSQL key/value connection string (used by GORM).
 func (c Config) DSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
 		c.DBHost, c.DBPort, c.DBUser, c.DBPassword, c.DBName, c.DBSSLMode,
+	)
+}
+
+// DatabaseURL returns the postgres:// URL form (used by golang-migrate).
+func (c Config) DatabaseURL() string {
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName, c.DBSSLMode,
 	)
 }

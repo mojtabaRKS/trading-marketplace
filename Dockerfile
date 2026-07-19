@@ -19,3 +19,4 @@ COPY --from=build /out/marketd /usr/local/bin/marketd
 
 EXPOSE 8080
 ENTRYPOINT ["marketd"]
+CMD ["serve"]
