@@ -1,0 +1,35 @@
+---
+description: Project architecture, tech stack, and layering conventions
+alwaysApply: true
+---
+
+# Architecture & Stack
+
+## Stack (decided)
+- **Go 1.26**, **Gin** (HTTP), **GORM** + Postgres driver (DB/ORM), **PostgreSQL 16**.
+- Config via `envconfig`; structured logging via stdlib `slog` (JSON).
+- Migrations: GORM `AutoMigrate` + raw SQL for partial unique indexes / check constraints.
+- Docker + Docker Compose (app + Postgres); `Makefile` for common tasks.
+
+## Layout (layered / hexagonal-lite)
+```
+cmd/marketd/            # entrypoint: server + workers + graceful shutdown
+internal/
+  config/               # env config
+  domain/               # pure entities + business rules (NO I/O, unit-tested)
+  service/              # use-cases; owns DB transaction boundaries
+  ports/                # interfaces (repositories, oracle)
+  adapters/
+    http/               # Gin handlers, DTOs, middleware (idempotency)
+    postgres/           # GORM repository implementations
+    oracle/             # oracle client + mock
+  worker/               # auction settlement ticker
+migrations/  docs/
+```
+
+## Rules
+- Keep `domain/` pure and dependency-free; put orchestration + transactions in `service/`.
+- Enforce concurrency/uniqueness invariants at the **DB level** (constraints + `SELECT ... FOR UPDATE`),
+  never solely in Go memory.
+- Handlers stay thin: validate/parse → call service → map result to HTTP.
+- Money as integer minor units, never floats.

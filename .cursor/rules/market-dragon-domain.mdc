@@ -1,0 +1,39 @@
+---
+description: Market Dragon challenge domain, invariants, and business rules
+alwaysApply: true
+---
+
+# Market Dragon — Domain & Invariants
+
+Secure marketplace (Go) for trading/auctioning items in Aethoria. Full brief: `docs/IMPLEMENTATION_GUIDE.md`.
+
+## Non-negotiables (guardian Vorynthax)
+1. No invalid or **duplicate sale** of an asset (Legendary items are globally unique).
+2. No Guild may commit beyond its **available funds** or **daily purchase cap**.
+3. Stay **reliable + auditable** even when external services misbehave.
+4. Must survive **duplicate operations**, **unreliable services**, and **concurrent requests**.
+
+## Items
+- **Common** / **Rare** → traded via **Limit Order** (fixed price, frozen once listed).
+- **Legendary** → **Auction only**; exactly one copy exists, never reproduced.
+
+## Wallet
+- `Available Balance = Total Balance − Reserved Amount`.
+- Every movement (**purchase / reserve / release**) MUST be recorded in a traceable ledger.
+
+## Business rules (enforce all)
+1. A Guild cannot bid on its own item.
+2. A new bid must be **≥ 5% higher** than the current highest bid.
+3. A bid may be cancelled **only if you are not the current highest bidder**.
+4. Check balance (incl. reserves) before any financial commitment.
+5. Each Legendary has **at most one active auction** at a time.
+
+## Auction specifics
+- Window default **24h** (configurable). Highest bid wins.
+- Anti-snipe: a bid in the last **5 min** extends the auction by **5 min**.
+- Placing a bid **reserves** funds (not debited); losing bids are **released immediately**.
+- Auction ending with no bids → item becomes **Available** again.
+
+## Oracle Price Service (external, must be mocked behind an interface)
+- Pushes base prices ~every 30s; may be slow, wrong, or send zero/negative.
+- Validate inputs, reject bad values, keep **last-known-good**; never corrupt state.

@@ -1,0 +1,35 @@
+---
+description: Go, Gin, and GORM coding conventions
+globs: **/*.go
+alwaysApply: false
+---
+
+# Go / Gin / GORM Conventions
+
+- Wrap errors with context: `fmt.Errorf("do thing: %w", err)`; never swallow errors.
+- Use `slog` for logging (structured key/values), not `fmt.Println`/`log`.
+- Pass `context.Context` as the first arg through service and repo calls.
+- Keep handlers thin; business logic lives in `service/`, pure rules in `domain/`.
+
+## Transactions & concurrency
+- Do multi-step money/asset changes inside a single GORM transaction (`db.Transaction(...)`).
+- Lock contended rows with `clause.Locking{Strength: "UPDATE"}` (SELECT ... FOR UPDATE).
+- Enforce uniqueness with DB constraints (e.g. partial unique index for one active auction),
+  not just in-memory checks.
+
+## Testing
+- Unit-test `domain/` rules (happy + rejection paths) with no I/O.
+- Integration-test critical flows; run `go test -race ./...`.
+
+```go
+// ✅ transaction + row lock example
+err := db.Transaction(func(tx *gorm.DB) error {
+    var w Wallet
+    if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+        First(&w, "guild_id = ?", guildID).Error; err != nil {
+        return fmt.Errorf("lock wallet: %w", err)
+    }
+    // ... mutate + write ledger row ...
+    return nil
+})
+```
