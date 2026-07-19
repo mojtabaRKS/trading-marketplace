@@ -1,0 +1,10 @@
+/bin/
+/out/
+*.exe
+*.test
+*.out
+.env
+.DS_Store
+
+.vscode
+.codegraph
