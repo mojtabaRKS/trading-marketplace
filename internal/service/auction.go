@@ -192,6 +192,93 @@ func (s *AuctionService) CancelBid(ctx context.Context, auctionID, bidID, bidder
 	})
 }
 
+// SettleDue finds every active auction whose window has closed and settles each
+// in its own transaction. It returns the number actually settled. Safe to run
+// from multiple workers: each settlement locks its auction row.
+func (s *AuctionService) SettleDue(ctx context.Context) (int, error) {
+	var ids []uint64
+	if err := s.db.WithContext(ctx).
+		Model(&repository.Auction{}).
+		Where("status = ? AND ends_at <= ?", repository.AuctionActive, s.now()).
+		Pluck("id", &ids).Error; err != nil {
+		return 0, fmt.Errorf("find due auctions: %w", err)
+	}
+	settled := 0
+	for _, id := range ids {
+		ok, err := s.SettleAuction(ctx, id)
+		if err != nil {
+			return settled, fmt.Errorf("settle auction %d: %w", id, err)
+		}
+		if ok {
+			settled++
+		}
+	}
+	return settled, nil
+}
+
+// SettleAuction closes a single ended auction atomically and idempotently. If
+// there is a highest bid, the winner's reserved funds are converted to a spend,
+// the seller is credited, and the item is transferred; otherwise the item simply
+// returns to Available. Returns false (no error) when the auction is not active
+// or has not ended yet, so retries and concurrent workers are no-ops.
+func (s *AuctionService) SettleAuction(ctx context.Context, auctionID uint64) (bool, error) {
+	settled := false
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		auction, err := lockAuction(tx, auctionID)
+		if err != nil {
+			return err
+		}
+		if auction.Status != repository.AuctionActive {
+			return nil // already settled/cancelled — idempotent no-op
+		}
+		if !AuctionEnded(s.now(), auction.EndsAt) {
+			return nil // window still open
+		}
+
+		item, err := lockItem(tx, auction.ItemID)
+		if err != nil {
+			return err
+		}
+
+		if auction.HighestBidID != nil {
+			var win repository.Bid
+			if err := tx.First(&win, *auction.HighestBidID).Error; err != nil {
+				return notFoundOr(err, "load winning bid")
+			}
+			// Winner pays out of the funds reserved at bid time; seller is paid.
+			if err := s.wallets.SettleReservedTx(tx, win.BidderGuildID, win.Amount, repository.RefAuction, auctionID); err != nil {
+				return err
+			}
+			if err := s.wallets.CreditTx(tx, auction.SellerGuildID, win.Amount, repository.RefAuction, auctionID); err != nil {
+				return err
+			}
+			item.OwnerGuildID = win.BidderGuildID
+			item.Status = repository.ItemAvailable
+			win.Status = repository.BidWon
+			if err := tx.Save(&win).Error; err != nil {
+				return fmt.Errorf("mark bid won: %w", err)
+			}
+			winner := win.BidderGuildID
+			auction.WinnerGuildID = &winner
+		} else {
+			// No bids: the legendary is available again.
+			item.Status = repository.ItemAvailable
+		}
+
+		auction.Status = repository.AuctionSettled
+		auction.UpdatedAt = s.now()
+		if err := tx.Save(item).Error; err != nil {
+			return fmt.Errorf("update item: %w", err)
+		}
+		if err := tx.Save(auction).Error; err != nil {
+			return fmt.Errorf("settle auction: %w", err)
+		}
+		settled = true
+		return nil
+	})
+	return settled, err
+}
+
 // GetAuction returns an auction by ID.
 func (s *AuctionService) GetAuction(ctx context.Context, auctionID uint64) (*repository.Auction, error) {
 	var a repository.Auction

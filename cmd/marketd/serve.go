@@ -12,6 +12,7 @@ import (
 	"github.com/herotech/market-dragon/internal/infra/database"
 	"github.com/herotech/market-dragon/internal/repository"
 	"github.com/herotech/market-dragon/internal/service"
+	"github.com/herotech/market-dragon/internal/worker"
 )
 
 func serveCmd() *cobra.Command {
@@ -63,11 +64,14 @@ func runServe(ctx context.Context) error {
 	})
 	srv := api.NewServer(":"+cfg.HTTPPort, router, logger)
 
-	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Start() }()
-
 	sigCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	settler := worker.NewSettlementWorker(auctions, cfg.SettleInterval, logger)
+	go settler.Run(sigCtx)
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.Start() }()
 
 	select {
 	case err := <-errCh:

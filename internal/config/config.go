@@ -34,6 +34,9 @@ type Config struct {
 	// Auction defaults
 	AuctionWindow    time.Duration
 	AuctionExtension time.Duration
+
+	// Background workers
+	SettleInterval time.Duration
 }
 
 // Load reads configuration using Viper: defaults, then an optional .env file,
@@ -70,6 +73,7 @@ func Load() (Config, error) {
 		Seed:             v.GetBool("SEED"),
 		AuctionWindow:    v.GetDuration("AUCTION_WINDOW"),
 		AuctionExtension: v.GetDuration("AUCTION_EXTENSION"),
+		SettleInterval:   v.GetDuration("SETTLE_INTERVAL"),
 	}, nil
 }
 
@@ -87,6 +91,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("SEED", false)
 	v.SetDefault("AUCTION_WINDOW", "24h")
 	v.SetDefault("AUCTION_EXTENSION", "5m")
+	v.SetDefault("SETTLE_INTERVAL", "10s")
 }
 
 // DSN returns the PostgreSQL key/value connection string (used by GORM).
