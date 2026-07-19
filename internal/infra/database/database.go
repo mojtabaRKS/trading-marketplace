@@ -5,6 +5,8 @@ package database
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -19,8 +21,12 @@ import (
 
 // Open connects to PostgreSQL and configures the connection pool.
 func Open(dsn string) (*gorm.DB, error) {
+	glog := gormlogger.New(log.New(os.Stdout, "", log.LstdFlags), gormlogger.Config{
+		LogLevel:                  gormlogger.Warn,
+		IgnoreRecordNotFoundError: true, // handled explicitly in the service layer
+	})
 	db, err := gorm.Open(postgres.New(postgres.Config{DSN: dsn}), &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
+		Logger: glog,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("open postgres: %w", err)
