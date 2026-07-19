@@ -90,8 +90,11 @@ These are sensible defaults; revisit in the ADR.
 - **Database:** PostgreSQL — chosen for strong transactional guarantees (row-level locking,
   `SERIALIZABLE`/`SELECT ... FOR UPDATE`), which the unique-asset and wallet invariants demand.
 - **HTTP:** `Gin` framework.
+- **CLI:** `cobra` (root `marketd` + `serve`/`migrate`/`seed` subcommands).
+- **Config:** `viper` (loads `.env` + env vars; env > .env > default).
 - **DB access / ORM:** `GORM` with the Postgres driver.
-- **Migrations:** GORM `AutoMigrate` (plus raw SQL for partial unique indexes / check constraints).
+- **Migrations:** `golang-migrate` over versioned SQL files in `migrations/` (one file per table),
+  embedded with `//go:embed` and applied on startup.
 - **Config:** env vars via `envconfig`/`viper`.
 - **Logging:** `slog` (stdlib, structured).
 - **Testing:** stdlib `testing` + `testcontainers-go` for integration tests.
@@ -103,35 +106,28 @@ These are sensible defaults; revisit in the ADR.
 ## Architecture (layered / hexagonal-lite)
 
 ```
-cmd/marketd/            # main entrypoint (HTTP server + workers)
+cmd/marketd/            # cobra CLI: root + serve/migrate/seed
+migrations/             # golang-migrate SQL, one file per table + embed.FS
 internal/
-  domain/               # entities + business rules (pure, no I/O)
-    item.go
-    guild.go
-    wallet.go
-    order.go
-    auction.go
-    bid.go
-  service/              # use-cases; orchestrates domain + ports (transactions here)
-    trading.go
-    auction.go
-    wallet.go
-  ports/                # interfaces (repositories, oracle)
-  adapters/
-    postgres/           # repository implementations
-    oracle/             # oracle client + mock
-    http/               # handlers, routing, DTOs, middleware (idempotency)
+  config/               # viper config (DSN + DatabaseURL)
+  api/                  # HTTP: Gin router + server lifecycle
+    middleware/         # all Gin middlewares (logging, recovery, idempotency)
+  service/              # use-cases; owns DB transaction boundaries
+  repository/           # persistence models + data-access repositories
+  infra/
+    database/           # GORM client (Open) + migration runner (Migrate)
+    logging/            # slog logger builder
+    oracle/             # oracle port + client/mock
   worker/               # auction settlement ticker
-migrations/
 docker-compose.yml
 Dockerfile
 README.md
 docs/ADR.md
 ```
 
-Keep **domain** pure and unit-testable. Put **transaction boundaries** in the service layer.
-Enforce concurrency/uniqueness invariants at the **database** level (constraints + locks),
-never solely in Go memory.
+Flow is `api → service → repository`. Models live in `repository/`. Put **transaction boundaries**
+in the service layer. Enforce concurrency/uniqueness invariants at the **database** level
+(constraints + locks), never solely in Go memory.
 
 ---
 
