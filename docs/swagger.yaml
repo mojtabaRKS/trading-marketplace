@@ -1,0 +1,616 @@
+basePath: /
+definitions:
+  api.AuctionDetailResponse:
+    properties:
+      auction:
+        $ref: '#/definitions/api.AuctionResponse'
+      highest_bid:
+        $ref: '#/definitions/api.BidResponse'
+    type: object
+  api.AuctionListResponse:
+    properties:
+      auctions:
+        items:
+          $ref: '#/definitions/api.AuctionResponse'
+        type: array
+    type: object
+  api.AuctionResponse:
+    properties:
+      ends_at:
+        example: "2026-01-02T00:00:00Z"
+        type: string
+      highest_bid_id:
+        type: integer
+      id:
+        example: 1
+        type: integer
+      item_id:
+        example: 3
+        type: integer
+      seller_guild_id:
+        example: 3
+        type: integer
+      starts_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      status:
+        example: active
+        type: string
+      winner_guild_id:
+        type: integer
+    type: object
+  api.BidResponse:
+    properties:
+      amount:
+        example: 1200
+        type: integer
+      auction_id:
+        example: 1
+        type: integer
+      bidder_guild_id:
+        example: 1
+        type: integer
+      id:
+        example: 1
+        type: integer
+      status:
+        example: active
+        type: string
+    type: object
+  api.BuyRequest:
+    properties:
+      buyer_guild_id:
+        example: 1
+        type: integer
+    required:
+    - buyer_guild_id
+    type: object
+  api.CancelBidRequest:
+    properties:
+      bidder_guild_id:
+        example: 1
+        type: integer
+    required:
+    - bidder_guild_id
+    type: object
+  api.CreateItemRequest:
+    properties:
+      name:
+        example: Elven Bow
+        type: string
+      owner_guild_id:
+        example: 2
+        type: integer
+      stock:
+        example: 5
+        type: integer
+      tier:
+        example: rare
+        type: string
+    required:
+    - name
+    - owner_guild_id
+    - tier
+    type: object
+  api.ErrorResponse:
+    properties:
+      error:
+        example: item not found
+        type: string
+    type: object
+  api.HealthResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  api.ItemDetailResponse:
+    properties:
+      auction:
+        $ref: '#/definitions/api.AuctionResponse'
+      item:
+        $ref: '#/definitions/api.ItemResponse'
+      listing:
+        $ref: '#/definitions/api.ListingResponse'
+    type: object
+  api.ItemListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/api.ItemResponse'
+        type: array
+    type: object
+  api.ItemResponse:
+    properties:
+      id:
+        example: 3
+        type: integer
+      name:
+        example: Soul Reaver
+        type: string
+      owner_guild_id:
+        example: 3
+        type: integer
+      price:
+        example: 250000
+        type: integer
+      status:
+        example: available
+        type: string
+      stock:
+        example: 1
+        type: integer
+      tier:
+        example: legendary
+        type: string
+    type: object
+  api.ListForSaleRequest:
+    properties:
+      price:
+        example: 500
+        type: integer
+      seller_guild_id:
+        example: 2
+        type: integer
+    required:
+    - price
+    - seller_guild_id
+    type: object
+  api.ListingResponse:
+    properties:
+      buyer_guild_id:
+        type: integer
+      id:
+        example: 1
+        type: integer
+      item_id:
+        example: 2
+        type: integer
+      price:
+        example: 500
+        type: integer
+      seller_guild_id:
+        example: 2
+        type: integer
+      status:
+        example: open
+        type: string
+    type: object
+  api.OpenAuctionRequest:
+    properties:
+      seller_guild_id:
+        example: 3
+        type: integer
+    required:
+    - seller_guild_id
+    type: object
+  api.PlaceBidRequest:
+    properties:
+      amount:
+        example: 1200
+        type: integer
+      bidder_guild_id:
+        example: 1
+        type: integer
+    required:
+    - amount
+    - bidder_guild_id
+    type: object
+  api.StatusResponse:
+    properties:
+      status:
+        example: cancelled
+        type: string
+    type: object
+  api.WalletResponse:
+    properties:
+      available:
+        example: 98800
+        type: integer
+      guild_id:
+        example: 1
+        type: integer
+      reserved:
+        example: 1200
+        type: integer
+      total:
+        example: 100000
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: Market Dragon Team
+  description: |-
+    Secure marketplace for trading and auctioning items in Aethoria.
+    Common and Rare items trade via fixed-price listings. Legendary items trade via auctions.
+  license:
+    name: MIT
+  title: Market Dragon API
+  version: "1.0"
+paths:
+  /auctions:
+    get:
+      description: List every auction that is currently open for bids.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.AuctionListResponse'
+      summary: List active auctions
+      tags:
+      - auctions
+  /auctions/{id}:
+    get:
+      description: Get one auction and its current highest bid (if any).
+      parameters:
+      - description: Auction ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.AuctionDetailResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get an auction
+      tags:
+      - auctions
+  /guilds/{id}/wallet:
+    get:
+      description: Return a guild's wallet balance. Available balance is Total minus
+        Reserved.
+      parameters:
+      - description: Guild ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.WalletResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get a guild wallet
+      tags:
+      - guilds
+  /health:
+    get:
+      description: Return 200 while the service is up.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.HealthResponse'
+      summary: Liveness probe
+      tags:
+      - system
+  /items:
+    get:
+      description: List every item with its current validated Oracle price (when available).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ItemListResponse'
+      summary: List items
+      tags:
+      - items
+    post:
+      consumes:
+      - application/json
+      description: Register a new item owned by a guild. The item is not for sale
+        yet. Legendary items are unique (stock is forced to 1).
+      parameters:
+      - description: Idempotency key to make retries safe
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Item to register
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateItemRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.ItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Register an item
+      tags:
+      - items
+  /items/{id}:
+    get:
+      description: Get one item, its live price, and its active offer (fixed-price
+        listing or auction) if any.
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ItemDetailResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get an item
+      tags:
+      - items
+  /items/{id}/auction:
+    post:
+      consumes:
+      - application/json
+      description: Open an auction for a Legendary item. Only one active auction per
+        item is allowed.
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Idempotency key to make retries safe
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Seller
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.OpenAuctionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.AuctionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Open an auction
+      tags:
+      - items
+  /items/{id}/bid:
+    post:
+      consumes:
+      - application/json
+      description: Place a bid on an item's active auction. A new bid must be at least
+        5% above the current highest bid. Funds are reserved, not debited.
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Idempotency key to make retries safe
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Bid to place
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.PlaceBidRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.BidResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "402":
+          description: Payment Required
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Place a bid
+      tags:
+      - items
+  /items/{id}/bid/{bid_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Cancel a bid on an item's active auction. You cannot cancel a bid
+        while you are the highest bidder.
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Bid ID
+        in: path
+        name: bid_id
+        required: true
+        type: integer
+      - description: Idempotency key to make retries safe
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Bidder
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.CancelBidRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.StatusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Cancel a bid
+      tags:
+      - items
+  /items/{id}/buy:
+    post:
+      consumes:
+      - application/json
+      description: Buy a fixed-price item. Checks the balance and daily cap, moves
+        money, and transfers the item in one transaction.
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Idempotency key to make retries safe
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Buyer
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.BuyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ListingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "402":
+          description: Payment Required
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Buy an item
+      tags:
+      - items
+  /items/{id}/list:
+    post:
+      consumes:
+      - application/json
+      description: Offer a Common/Rare item at a fixed price (a limit order). Legendary
+        items must use an auction instead.
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Idempotency key to make retries safe
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Price and seller
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.ListForSaleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.ListingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: List an item for sale
+      tags:
+      - items
+schemes:
+- http
+swagger: "2.0"
+tags:
+- description: Register, list, sell, buy, and bid on items
+  name: items
+- description: Active auctions for Legendary items
+  name: auctions
+- description: Guild wallets
+  name: guilds
+- description: Health and diagnostics
+  name: system

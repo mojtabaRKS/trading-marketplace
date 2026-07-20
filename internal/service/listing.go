@@ -161,6 +161,30 @@ func (s *ListingService) Buy(ctx context.Context, buyerGuildID, listingID uint64
 	return &listing, nil
 }
 
+// OpenListingByItem returns the current open listing for an item, or
+// ErrNotFound if the item is not currently listed for a fixed price.
+func (s *ListingService) OpenListingByItem(ctx context.Context, itemID uint64) (*repository.Listing, error) {
+	var listing repository.Listing
+	err := s.db.WithContext(ctx).
+		Where("item_id = ? AND status = ?", itemID, repository.ListingOpen).
+		Order("id DESC").
+		First(&listing).Error
+	if err != nil {
+		return nil, notFoundOr(err, "load open listing")
+	}
+	return &listing, nil
+}
+
+// BuyByItem buys the open fixed-price listing for the given item. It resolves
+// the listing, then runs the same atomic purchase as Buy.
+func (s *ListingService) BuyByItem(ctx context.Context, buyerGuildID, itemID uint64) (*repository.Listing, error) {
+	listing, err := s.OpenListingByItem(ctx, itemID)
+	if err != nil {
+		return nil, err
+	}
+	return s.Buy(ctx, buyerGuildID, listing.ID)
+}
+
 // dailySpent returns how much the guild has spent today (0 if no row yet).
 func (s *ListingService) dailySpent(tx *gorm.DB, guildID uint64) (int64, error) {
 	var dpt repository.DailyPurchaseTotal

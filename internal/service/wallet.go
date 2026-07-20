@@ -110,6 +110,29 @@ func (s *WalletService) SettleReservedTx(tx *gorm.DB, guildID uint64, amount int
 	})
 }
 
+// WalletBalance is a read-only view of a guild's wallet.
+type WalletBalance struct {
+	GuildID   uint64
+	Total     int64
+	Reserved  int64
+	Available int64
+}
+
+// Balance returns a guild's current wallet balance. Available is derived as
+// Total - Reserved (never stored).
+func (s *WalletService) Balance(ctx context.Context, guildID uint64) (*WalletBalance, error) {
+	var w repository.Wallet
+	if err := s.db.WithContext(ctx).Where("guild_id = ?", guildID).First(&w).Error; err != nil {
+		return nil, notFoundOr(err, "load wallet")
+	}
+	return &WalletBalance{
+		GuildID:   w.GuildID,
+		Total:     w.TotalBalance,
+		Reserved:  w.ReservedAmount,
+		Available: w.TotalBalance - w.ReservedAmount,
+	}, nil
+}
+
 func (s *WalletService) inTx(ctx context.Context, fn func(*gorm.DB) error) error {
 	return s.db.WithContext(ctx).Transaction(fn)
 }

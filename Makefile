@@ -1,4 +1,4 @@
-.PHONY: build run test tidy vet fmt up down logs migrate-up migrate-down
+.PHONY: build run test tidy vet fmt up down logs migrate-up migrate-down swagger
 
 # golang-migrate CLI target (optional; app also auto-migrates on startup).
 # Requires the `migrate` CLI: https://github.com/golang-migrate/migrate
@@ -23,6 +23,11 @@ test:
 test-integration:
 	DB_HOST=localhost DB_PORT=5433 DB_USER=marketd DB_PASSWORD=marketd DB_NAME=marketd DB_SSLMODE=disable \
 		go test -tags integration -race ./...
+
+# Regenerate OpenAPI docs (docs/swagger.yaml, docs/swagger.json, docs/docs.go)
+# from the swaggo annotations in the handlers.
+swagger:
+	go run github.com/swaggo/swag/cmd/swag@latest init -g cmd/marketd/main.go -o docs --parseInternal --parseDepth 2
 
 tidy:
 	go mod tidy

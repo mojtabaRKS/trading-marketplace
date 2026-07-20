@@ -13,6 +13,10 @@ var (
 	ErrCancelHighestBid     = errors.New("cannot cancel bid while highest bidder")
 	ErrDailyCapExceeded     = errors.New("daily purchase cap exceeded")
 
+	ErrNameRequired = errors.New("item name is required")
+	ErrInvalidTier  = errors.New("tier must be common, rare, or legendary")
+	ErrInvalidStock = errors.New("stock must be positive")
+
 	ErrNotFound              = errors.New("resource not found")
 	ErrItemNotOwned          = errors.New("item is not owned by the seller")
 	ErrLegendaryNeedsAuction = errors.New("legendary items must be sold via auction")

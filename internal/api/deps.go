@@ -8,12 +8,13 @@ import (
 	"github.com/herotech/market-dragon/internal/service"
 )
 
-// Deps holds everything the HTTP handlers need. Services are added here as
-// features land.
+// Deps holds everything the HTTP handlers need.
 type Deps struct {
 	Logger   *slog.Logger
 	DB       *gorm.DB
+	Items    *service.ItemService
 	Listings *service.ListingService
 	Auctions *service.AuctionService
+	Wallets  *service.WalletService
 	Oracle   *service.OracleService
 }

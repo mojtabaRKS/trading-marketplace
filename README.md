@@ -1,66 +1,83 @@
 # Market Dragon
 
-A secure trading & auction marketplace backend for the land of **Aethoria**, written in Go.
-Guilds trade **Common/Rare** items via fixed-price limit orders and compete for unique
-**Legendary** items via auctions — with hard guarantees against double-sales, over-spending,
-duplicate requests, and an unreliable external price feed.
+Market Dragon is a backend for a game marketplace, written in Go.
+Guilds (player groups) buy and sell items in the land of Aethoria.
 
-> Full brief: [`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md) ·
-> Design rationale & trade-offs: [`docs/ADR.md`](docs/ADR.md) ·
-> Persian design write-up (مستند فارسی): [`docs/DESIGN_FA.md`](docs/DESIGN_FA.md)
+- **Common** and **Rare** items are sold at a fixed price (a "limit order").
+- **Legendary** items are unique. They are sold only through auctions.
+
+The system gives strong safety promises. It never sells one item twice.
+It never lets a guild spend more money than it has. It handles repeated
+requests safely. It keeps working even when the external price service is slow
+or sends bad data.
+
+> More docs:
+> [`docs/IMPLEMENTATION_GUIDE.md`](docs/IMPLEMENTATION_GUIDE.md) (build plan) ·
+> [`docs/ADR.md`](docs/ADR.md) (design choices and trade-offs) ·
+> [`docs/DESIGN_FA.md`](docs/DESIGN_FA.md) (Persian write-up / مستند فارسی)
 
 ---
 
-## Highlights
+## Main features
 
-- **No invalid/duplicate sale of an asset** — enforced at the database (partial unique index for
-  one active auction per legendary; row locks + status transitions for single-sale).
-- **No over-spending** — wallet with `Available = Total − Reserved`, row-locked money movements,
-  an append-only ledger (`wallet_transactions`), and per-guild daily purchase caps.
-- **Auctions** — 24h window, +5% minimum increment, anti-snipe extension, immediate release of
-  outbid reservations, and deterministic settlement by a background worker.
-- **Resilient Oracle price feed** — timeout + retry/backoff + circuit breaker, price validation,
-  and last-known-good fallback so a slow/wrong/zero/negative feed never corrupts state.
-- **Idempotency** — `Idempotency-Key` on all state-changing endpoints; duplicates never double-apply.
+- **No double sale.** The database makes sure one item is never sold twice.
+- **No over-spending.** A wallet tracks `Available = Total − Reserved`. Every
+  money change is locked and written to a ledger (a full history of money moves).
+  Each guild also has a daily spending limit.
+- **Auctions.** They last 24 hours. Each new bid must be at least 5% higher.
+  A late bid extends the auction (anti-snipe). Losing bids are freed at once.
+  A background job closes auctions when time is up.
+- **Safe price feed.** The Oracle price service is called with a timeout, retries,
+  and a circuit breaker (a switch that stops calls to a broken service). Prices
+  are checked, and the last good price is kept if the feed fails.
+- **Idempotency.** Idempotency means a repeated request has the same effect as
+  one request. State-changing endpoints accept an `Idempotency-Key` header, so
+  retries never apply twice.
 
 ## Tech stack
 
-Go 1.26 · Gin · GORM (PostgreSQL 16) · golang-migrate · Cobra + Viper · slog · Docker Compose.
+Go 1.26 · Gin (web framework) · GORM (database library) · PostgreSQL 16 ·
+golang-migrate (database migrations) · Cobra + Viper (CLI and config) ·
+slog (logging) · Docker Compose.
 
 ## Architecture
 
-Layered: `api → service → repository`, with cross-cutting clients under `infra/`.
-Business rules live in `service/`; the hardest invariants are enforced in the **database**.
+The code has three layers: `api → service → repository`.
+Shared clients live under `infra/`. Business rules live in `service/`.
+The most important safety rules are enforced by the database.
 
 ```
-cmd/marketd/        cobra CLI: serve | migrate | seed
-migrations/         versioned SQL (golang-migrate), embedded via //go:embed
+cmd/marketd/        CLI: serve | migrate | seed
+migrations/         SQL files for the database schema
 internal/
-  config/           viper config (env > .env > default)
-  api/              Gin router, handlers, server lifecycle
+  config/           config from env vars and .env
+  api/              web router, handlers, server start/stop
     middleware/     logging, recovery, idempotency
-  service/          use-cases + pure rules; owns DB transaction boundaries
-  repository/       GORM models, repositories, seed data
+  service/          use-cases and rules; owns database transactions
+  repository/       database models, data access, seed data
   infra/
-    database/       GORM client + migration runner
-    logging/        slog builder
-    oracle/         price-feed Source, mock, resilient client, circuit breaker
-  worker/           auction settlement ticker + oracle poller
+    database/       database client + migration runner
+    logging/        logger setup
+    oracle/         price feed: interface, mock, resilient client, breaker
+  worker/           auction settlement job + oracle poller
 ```
+
+Note: a "migration" is a versioned change to the database schema.
+A "transaction" is a group of database changes that all succeed or all fail.
 
 ---
 
 ## Quick start (Docker Compose)
 
-Runs Postgres + the API, applies migrations, and seeds demo data automatically.
+This starts PostgreSQL and the API. It runs migrations and loads demo data.
 
 ```bash
 docker compose up --build
-# API on http://localhost:8080  (Postgres published on host port 5433)
-curl -s localhost:8080/healthz
+# API on http://localhost:8080  (PostgreSQL is published on host port 5433)
+curl -s localhost:8080/health
 ```
 
-Tear down (add `-v` to also drop the database volume):
+Stop it (add `-v` to also delete the database volume):
 
 ```bash
 docker compose down
@@ -69,50 +86,51 @@ docker compose down
 ## Run locally (without the app container)
 
 ```bash
-cp .env.example .env         # defaults target Compose Postgres on port 5433
-docker compose up -d db      # just the database
+cp .env.example .env         # defaults point to Compose PostgreSQL on port 5433
+docker compose up -d db      # start only the database
 make run                     # go run ./cmd/marketd serve
-# or seed demo data first:
+# load demo data first, if you want:
 DB_PORT=5433 go run ./cmd/marketd seed
 ```
 
-### CLI
+### CLI commands
 
 ```bash
-marketd serve      # run the HTTP API (auto-migrates unless AUTO_MIGRATE=false; seeds if SEED=true)
-marketd migrate    # apply migrations
-marketd seed       # load deterministic demo data
+marketd serve      # run the API (runs migrations unless AUTO_MIGRATE=false; seeds if SEED=true)
+marketd migrate    # apply database migrations
+marketd seed       # load demo data
 ```
 
 ---
 
 ## Configuration
 
-All config is read from environment variables (optionally a `.env` file). Precedence:
-`env var > .env > built-in default`. See [`.env.example`](.env.example) for the full list.
+Config comes from environment variables, or from a `.env` file.
+Order of priority: `env var > .env > default`.
+See [`.env.example`](.env.example) for the full list.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `HTTP_PORT` | `8080` | HTTP listen port |
-| `DB_HOST` / `DB_PORT` | `localhost` / `5433` | Postgres address (Compose publishes 5433) |
-| `DB_USER` / `DB_PASSWORD` / `DB_NAME` | `marketd` | Postgres credentials |
-| `AUTO_MIGRATE` | `true` | Apply migrations on `serve` |
+| `HTTP_PORT` | `8080` | Port for the API |
+| `DB_HOST` / `DB_PORT` | `localhost` / `5433` | PostgreSQL address (Compose uses 5433) |
+| `DB_USER` / `DB_PASSWORD` / `DB_NAME` | `marketd` | PostgreSQL login |
+| `AUTO_MIGRATE` | `true` | Run migrations on `serve` |
 | `SEED` | `false` | Load demo data on `serve` |
-| `AUCTION_WINDOW` | `24h` | Default auction duration |
-| `AUCTION_EXTENSION` | `5m` | Anti-snipe window & extension |
-| `SETTLE_INTERVAL` | `10s` | Auction settlement tick |
-| `ORACLE_POLL_INTERVAL` | `30s` | Price refresh interval |
-| `ORACLE_TIMEOUT` / `ORACLE_MAX_RETRIES` / `ORACLE_BACKOFF` | `2s` / `2` / `100ms` | Oracle call resilience |
+| `AUCTION_WINDOW` | `24h` | Default auction length |
+| `AUCTION_EXTENSION` | `5m` | Anti-snipe window and extension |
+| `SETTLE_INTERVAL` | `10s` | How often the settlement job runs |
+| `ORACLE_POLL_INTERVAL` | `30s` | How often prices are refreshed |
+| `ORACLE_TIMEOUT` / `ORACLE_MAX_RETRIES` / `ORACLE_BACKOFF` | `2s` / `2` / `100ms` | Oracle call safety |
 | `ORACLE_BREAKER_TRIP` / `ORACLE_BREAKER_COOLDOWN` | `3` / `15s` | Circuit breaker |
-| `ORACLE_MAX_PRICE` / `ORACLE_MAX_DEVIATION` | `1e9` / `0` | Price validation (0 disables deviation guard) |
+| `ORACLE_MAX_PRICE` / `ORACLE_MAX_DEVIATION` | `1e9` / `0` | Price checks (0 turns off the change check) |
 
 ---
 
-## Seed data
+## Demo data
 
-`marketd seed` (or `SEED=true`) loads:
+`marketd seed` (or `SEED=true`) loads these guilds:
 
-| Guild | Wallet | Daily cap |
+| Guild | Wallet | Daily limit |
 |---|---|---|
 | 1 Emberforge | 500,000 | 1,000,000 |
 | 2 Stormhaven | 750,000 | 1,000,000 |
@@ -125,61 +143,100 @@ Items: `1` Iron Dagger (common, guild 1), `2` Elven Bow (rare, guild 2),
 
 ## API
 
-All amounts are integer **minor units**. State-changing requests accept an optional
-`Idempotency-Key` header.
+All money values are integers in "minor units" (the smallest coin unit, like cents).
+State-changing requests accept an optional `Idempotency-Key` header.
 
-### Health
+### Interactive docs (Swagger)
 
-```bash
-curl localhost:8080/healthz
+The API is documented with OpenAPI. When the server runs, open the Swagger UI:
+
+```
+http://localhost:8080/swagger/index.html
 ```
 
-### Limit orders (Common & Rare)
+The raw spec lives in [`docs/swagger.yaml`](docs/swagger.yaml) and
+[`docs/swagger.json`](docs/swagger.json). To regenerate it from the code
+annotations after you change a handler, run:
 
 ```bash
-# List a rare item for sale
-curl -X POST localhost:8080/listings \
+make swagger
+```
+
+### Endpoints
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/health` | Liveness probe |
+| `POST` | `/items` | Register a new item (not for sale yet) |
+| `GET` | `/items` | List items with live Oracle price |
+| `GET` | `/items/{id}` | Item details + active offer |
+| `POST` | `/items/{id}/list` | Offer a Common/Rare item at a fixed price |
+| `POST` | `/items/{id}/auction` | Open an auction for a Legendary item |
+| `POST` | `/items/{id}/buy` | Buy a fixed-price item |
+| `POST` | `/items/{id}/bid` | Place a bid on the item's auction |
+| `DELETE` | `/items/{id}/bid/{bid_id}` | Cancel a bid (not while highest bidder) |
+| `GET` | `/auctions` | List active auctions |
+| `GET` | `/auctions/{id}` | Auction details + highest bid |
+| `GET` | `/guilds/{id}/wallet` | Wallet balance (total, reserved, available) |
+
+### Items and limit orders (Common and Rare)
+
+```bash
+# Register a new item into the market (owned by a guild, not yet for sale).
+curl -X POST localhost:8080/items \
+  -H 'Content-Type: application/json' \
+  -d '{"owner_guild_id":2,"name":"Elven Bow","tier":"rare","stock":5}'
+
+# Offer it for sale at a fixed price (a limit order).
+curl -X POST localhost:8080/items/2/list \
   -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: list-elven-bow-1' \
-  -d '{"seller_guild_id":2,"item_id":2,"price":500}'
+  -d '{"seller_guild_id":2,"price":500}'
 
-# Buy it (checks available balance + daily cap, transfers ownership, one TX)
-curl -X POST localhost:8080/listings/1/buy \
+# Buy it. This checks the balance and the daily limit,
+# moves the money, and transfers the item, all in one transaction.
+curl -X POST localhost:8080/items/2/buy \
   -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: buy-listing-1' \
+  -H 'Idempotency-Key: buy-item-2' \
   -d '{"buyer_guild_id":1}'
+
+# Read items (each carries its current checked Oracle price).
+curl localhost:8080/items
+curl localhost:8080/items/2
 ```
 
 ### Auctions (Legendary only)
 
 ```bash
-# Start an auction (seller must own a legendary item; one active auction per item)
-curl -X POST localhost:8080/auctions \
+# Open an auction. The seller must own the legendary item.
+# Only one active auction per item is allowed.
+curl -X POST localhost:8080/items/3/auction \
   -H 'Content-Type: application/json' \
-  -d '{"seller_guild_id":3,"item_id":3}'
+  -d '{"seller_guild_id":3}'
 
-# Place a bid (reserves funds, +5% rule, releases the previous leader, anti-snipe)
-curl -X POST localhost:8080/auctions/1/bids \
+# Place a bid. This reserves the money, applies the +5% rule,
+# frees the previous top bidder, and extends the auction if it is late.
+curl -X POST localhost:8080/items/3/bid \
   -H 'Content-Type: application/json' \
   -d '{"bidder_guild_id":1,"amount":260000}'
 
-# Cancel a non-winning bid
-curl -X DELETE localhost:8080/auctions/1/bids/1 \
+# Cancel a bid. Allowed only if you are not the top bidder.
+curl -X DELETE localhost:8080/items/3/bid/1 \
   -H 'Content-Type: application/json' \
   -d '{"bidder_guild_id":1}'
 
-# Reads
+# Read endpoints
+curl localhost:8080/auctions
 curl localhost:8080/auctions/1
-curl localhost:8080/auctions/1/bids
 ```
 
-Expired auctions are settled automatically by the background worker: the winner pays from
-reserved funds, the seller is credited, and the item transfers.
+When an auction ends, a background job closes it. The winner pays from the
+reserved money, the seller gets paid, and the item moves to the winner.
 
-### Prices (Oracle)
+### Wallet
 
 ```bash
-curl localhost:8080/prices/3   # current validated base price for an item
+curl localhost:8080/guilds/1/wallet   # total, reserved, and available balance
 ```
 
 ---
@@ -187,23 +244,24 @@ curl localhost:8080/prices/3   # current validated base price for an item
 ## Testing
 
 ```bash
-make test              # unit tests (-race)
-make test-integration  # integration tests against Postgres on port 5433
+make test              # unit tests (with the race detector)
+make test-integration  # integration tests against PostgreSQL on port 5433
 ```
 
-Integration tests are tagged `//go:build integration` and require a running Postgres
-(`docker compose up -d db`). They cover the critical flows: concurrent single-sale, daily-cap
-enforcement, wallet no-over-commit, auction bidding rules + reserve movement + anti-snipe,
-settlement (winner/no-bids/idempotent), oracle validation + last-known-good, and idempotent
-duplicate requests.
+Integration tests need a running PostgreSQL (`docker compose up -d db`).
+They cover the main flows: one sale under concurrent buys, the daily limit,
+no over-spending in the wallet, auction bid rules and money moves, anti-snipe,
+settlement (winner, no bids, and repeat runs), oracle checks with last good
+price, and repeated requests.
 
 ---
 
 ## Assumptions
 
-- Guild identity is supplied in the request body; there is no authn/authz layer.
-- Money is `int64` minor units; callers agree on the unit scale.
-- The Oracle upstream is mocked (`internal/infra/oracle`) behind the `Source` interface.
-- The daily purchase cap applies to limit-order buys, not auction settlement (see ADR — Known trade-off).
+- The guild id is sent in the request body. There is no login or auth layer.
+- Money is an `int64` in minor units. Callers agree on the unit size.
+- The Oracle service is a mock behind the `Source` interface.
+- The daily limit applies to fixed-price buys, not to auctions
+  (see the ADR "Known trade-off").
 
-See [`docs/ADR.md`](docs/ADR.md) for decisions, trade-offs, and "what we'd add with more time".
+See [`docs/ADR.md`](docs/ADR.md) for design choices, trade-offs, and next steps.

@@ -7,7 +7,10 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	swaggerfiles "github.com/swaggo/files"
+	ginswagger "github.com/swaggo/gin-swagger"
 
+	_ "github.com/herotech/market-dragon/docs"
 	"github.com/herotech/market-dragon/internal/api/middleware"
 )
 
@@ -19,7 +22,17 @@ func NewRouter(deps Deps) *gin.Engine {
 	r.Use(middleware.Recovery())
 	r.Use(middleware.RequestLogger(deps.Logger))
 
-	r.GET("/healthz", healthz)
+	r.GET("/health", health)
+
+	// Interactive API docs (generated from swaggo annotations).
+	r.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
+
+	// Reads.
+	r.GET("/items", listItems(deps))
+	r.GET("/items/:id", getItem(deps))
+	r.GET("/auctions", listAuctions(deps))
+	r.GET("/auctions/:id", getAuction(deps))
+	r.GET("/guilds/:id/wallet", getWallet(deps))
 
 	// State-changing endpoints are guarded by the idempotency middleware so
 	// retries/duplicates cannot cause a double effect.
@@ -27,22 +40,31 @@ func NewRouter(deps Deps) *gin.Engine {
 	if deps.DB != nil {
 		mutating.Use(middleware.Idempotency(deps.DB, deps.Logger))
 	}
-	mutating.POST("/listings", createListing(deps))
-	mutating.POST("/listings/:id/buy", buyListing(deps))
-	mutating.POST("/auctions", createAuction(deps))
-	mutating.POST("/auctions/:id/bids", placeBid(deps))
-	mutating.DELETE("/auctions/:id/bids/:bidId", cancelBid(deps))
-
-	r.GET("/auctions/:id", getAuction(deps))
-	r.GET("/auctions/:id/bids", listBids(deps))
-	r.GET("/prices/:id", getPrice(deps))
+	mutating.POST("/items", createItem(deps))
+	mutating.POST("/items/:id/list", listItemForSale(deps))
+	mutating.POST("/items/:id/auction", openAuction(deps))
+	mutating.POST("/items/:id/buy", buyItem(deps))
+	mutating.POST("/items/:id/bid", placeBid(deps))
+	mutating.DELETE("/items/:id/bid/:bid_id", cancelBid(deps))
 
 	return r
 }
 
-// healthz is a liveness probe.
-func healthz(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+// HealthResponse is the liveness probe body.
+type HealthResponse struct {
+	Status string `json:"status" example:"ok"`
+}
+
+// health godoc
+//
+//	@Summary		Liveness probe
+//	@Description	Return 200 while the service is up.
+//	@Tags			system
+//	@Produce		json
+//	@Success		200	{object}	HealthResponse
+//	@Router			/health [get]
+func health(c *gin.Context) {
+	c.JSON(http.StatusOK, HealthResponse{Status: "ok"})
 }
 
 // parseUintParam parses a uint64 path parameter, writing a 400 on failure.

@@ -279,6 +279,50 @@ func (s *AuctionService) SettleAuction(ctx context.Context, auctionID uint64) (b
 	return settled, err
 }
 
+// ActiveAuctionByItem returns the current active auction for an item, or
+// ErrNotFound if the item has no active auction.
+func (s *AuctionService) ActiveAuctionByItem(ctx context.Context, itemID uint64) (*repository.Auction, error) {
+	var a repository.Auction
+	err := s.db.WithContext(ctx).
+		Where("item_id = ? AND status = ?", itemID, repository.AuctionActive).
+		Order("id DESC").
+		First(&a).Error
+	if err != nil {
+		return nil, notFoundOr(err, "load active auction")
+	}
+	return &a, nil
+}
+
+// ListActiveAuctions returns all currently active auctions, newest first.
+func (s *AuctionService) ListActiveAuctions(ctx context.Context) ([]repository.Auction, error) {
+	var auctions []repository.Auction
+	if err := s.db.WithContext(ctx).
+		Where("status = ?", repository.AuctionActive).
+		Order("id DESC").
+		Find(&auctions).Error; err != nil {
+		return nil, fmt.Errorf("list active auctions: %w", err)
+	}
+	return auctions, nil
+}
+
+// PlaceBidOnItem resolves the item's active auction and places a bid on it.
+func (s *AuctionService) PlaceBidOnItem(ctx context.Context, itemID, bidderGuildID uint64, amount int64) (*repository.Bid, error) {
+	a, err := s.ActiveAuctionByItem(ctx, itemID)
+	if err != nil {
+		return nil, err
+	}
+	return s.PlaceBid(ctx, a.ID, bidderGuildID, amount)
+}
+
+// CancelBidOnItem resolves the item's active auction and cancels the given bid.
+func (s *AuctionService) CancelBidOnItem(ctx context.Context, itemID, bidID, bidderGuildID uint64) error {
+	a, err := s.ActiveAuctionByItem(ctx, itemID)
+	if err != nil {
+		return err
+	}
+	return s.CancelBid(ctx, a.ID, bidID, bidderGuildID)
+}
+
 // GetAuction returns an auction by ID.
 func (s *AuctionService) GetAuction(ctx context.Context, auctionID uint64) (*repository.Auction, error) {
 	var a repository.Auction

@@ -8,37 +8,45 @@ import (
 	"github.com/herotech/market-dragon/internal/repository"
 )
 
-type createAuctionRequest struct {
-	SellerGuildID uint64 `json:"seller_guild_id" binding:"required"`
-	ItemID        uint64 `json:"item_id" binding:"required"`
-}
-
-type placeBidRequest struct {
-	BidderGuildID uint64 `json:"bidder_guild_id" binding:"required"`
-	Amount        int64  `json:"amount" binding:"required"`
-}
-
-type auctionResponse struct {
-	ID            uint64  `json:"id"`
-	ItemID        uint64  `json:"item_id"`
-	SellerGuildID uint64  `json:"seller_guild_id"`
-	Status        string  `json:"status"`
-	StartsAt      string  `json:"starts_at"`
-	EndsAt        string  `json:"ends_at"`
+// AuctionResponse is an auction record.
+type AuctionResponse struct {
+	ID            uint64  `json:"id" example:"1"`
+	ItemID        uint64  `json:"item_id" example:"3"`
+	SellerGuildID uint64  `json:"seller_guild_id" example:"3"`
+	Status        string  `json:"status" example:"active"`
+	StartsAt      string  `json:"starts_at" example:"2026-01-01T00:00:00Z"`
+	EndsAt        string  `json:"ends_at" example:"2026-01-02T00:00:00Z"`
 	HighestBidID  *uint64 `json:"highest_bid_id,omitempty"`
 	WinnerGuildID *uint64 `json:"winner_guild_id,omitempty"`
 }
 
-type bidResponse struct {
-	ID            uint64 `json:"id"`
-	AuctionID     uint64 `json:"auction_id"`
-	BidderGuildID uint64 `json:"bidder_guild_id"`
-	Amount        int64  `json:"amount"`
-	Status        string `json:"status"`
+// BidResponse is a bid record.
+type BidResponse struct {
+	ID            uint64 `json:"id" example:"1"`
+	AuctionID     uint64 `json:"auction_id" example:"1"`
+	BidderGuildID uint64 `json:"bidder_guild_id" example:"1"`
+	Amount        int64  `json:"amount" example:"1200"`
+	Status        string `json:"status" example:"active"`
 }
 
-func toAuctionResponse(a *repository.Auction) auctionResponse {
-	return auctionResponse{
+// AuctionDetailResponse is an auction plus its current highest bid.
+type AuctionDetailResponse struct {
+	Auction    AuctionResponse `json:"auction"`
+	HighestBid *BidResponse    `json:"highest_bid,omitempty"`
+}
+
+// AuctionListResponse is a list of auctions.
+type AuctionListResponse struct {
+	Auctions []AuctionResponse `json:"auctions"`
+}
+
+// StatusResponse is a simple status acknowledgement.
+type StatusResponse struct {
+	Status string `json:"status" example:"cancelled"`
+}
+
+func toAuctionResponse(a *repository.Auction) AuctionResponse {
+	return AuctionResponse{
 		ID:            a.ID,
 		ItemID:        a.ItemID,
 		SellerGuildID: a.SellerGuildID,
@@ -50,8 +58,8 @@ func toAuctionResponse(a *repository.Auction) auctionResponse {
 	}
 }
 
-func toBidResponse(b *repository.Bid) bidResponse {
-	return bidResponse{
+func toBidResponse(b *repository.Bid) BidResponse {
+	return BidResponse{
 		ID:            b.ID,
 		AuctionID:     b.AuctionID,
 		BidderGuildID: b.BidderGuildID,
@@ -60,67 +68,39 @@ func toBidResponse(b *repository.Bid) bidResponse {
 	}
 }
 
-func createAuction(deps Deps) gin.HandlerFunc {
+// listAuctions godoc
+//
+//	@Summary		List active auctions
+//	@Description	List every auction that is currently open for bids.
+//	@Tags			auctions
+//	@Produce		json
+//	@Success		200	{object}	AuctionListResponse
+//	@Router			/auctions [get]
+func listAuctions(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req createAuctionRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		a, err := deps.Auctions.CreateAuction(c.Request.Context(), req.SellerGuildID, req.ItemID)
+		auctions, err := deps.Auctions.ListActiveAuctions(c.Request.Context())
 		if err != nil {
 			respondError(c, deps.Logger, err)
 			return
 		}
-		c.JSON(http.StatusCreated, toAuctionResponse(a))
+		out := make([]AuctionResponse, 0, len(auctions))
+		for i := range auctions {
+			out = append(out, toAuctionResponse(&auctions[i]))
+		}
+		c.JSON(http.StatusOK, AuctionListResponse{Auctions: out})
 	}
 }
 
-func placeBid(deps Deps) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id, ok := parseUintParam(c, "id")
-		if !ok {
-			return
-		}
-		var req placeBidRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		bid, err := deps.Auctions.PlaceBid(c.Request.Context(), id, req.BidderGuildID, req.Amount)
-		if err != nil {
-			respondError(c, deps.Logger, err)
-			return
-		}
-		c.JSON(http.StatusCreated, toBidResponse(bid))
-	}
-}
-
-func cancelBid(deps Deps) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		auctionID, ok := parseUintParam(c, "id")
-		if !ok {
-			return
-		}
-		bidID, ok := parseUintParam(c, "bidId")
-		if !ok {
-			return
-		}
-		var req struct {
-			BidderGuildID uint64 `json:"bidder_guild_id" binding:"required"`
-		}
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		if err := deps.Auctions.CancelBid(c.Request.Context(), auctionID, bidID, req.BidderGuildID); err != nil {
-			respondError(c, deps.Logger, err)
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"status": "cancelled"})
-	}
-}
-
+// getAuction godoc
+//
+//	@Summary		Get an auction
+//	@Description	Get one auction and its current highest bid (if any).
+//	@Tags			auctions
+//	@Produce		json
+//	@Param			id	path		int	true	"Auction ID"
+//	@Success		200	{object}	AuctionDetailResponse
+//	@Failure		404	{object}	ErrorResponse
+//	@Router			/auctions/{id} [get]
 func getAuction(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := parseUintParam(c, "id")
@@ -132,30 +112,11 @@ func getAuction(deps Deps) gin.HandlerFunc {
 			respondError(c, deps.Logger, err)
 			return
 		}
-		resp := gin.H{"auction": toAuctionResponse(a)}
+		resp := AuctionDetailResponse{Auction: toAuctionResponse(a)}
 		if hb, err := deps.Auctions.HighestBid(c.Request.Context(), id); err == nil && hb != nil {
 			b := toBidResponse(hb)
-			resp["highest_bid"] = b
+			resp.HighestBid = &b
 		}
 		c.JSON(http.StatusOK, resp)
-	}
-}
-
-func listBids(deps Deps) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id, ok := parseUintParam(c, "id")
-		if !ok {
-			return
-		}
-		bids, err := deps.Auctions.ListBids(c.Request.Context(), id)
-		if err != nil {
-			respondError(c, deps.Logger, err)
-			return
-		}
-		out := make([]bidResponse, 0, len(bids))
-		for i := range bids {
-			out = append(out, toBidResponse(&bids[i]))
-		}
-		c.JSON(http.StatusOK, gin.H{"bids": out})
 	}
 }

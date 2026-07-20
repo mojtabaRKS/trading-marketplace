@@ -58,6 +58,7 @@ func runServe(ctx context.Context) error {
 	}
 
 	wallets := service.NewWalletService(db)
+	items := service.NewItemService(db)
 	listings := service.NewListingService(db, wallets)
 	auctions := service.NewAuctionService(db, wallets, cfg.AuctionWindow, cfg.AuctionExtension)
 	oracles := buildOracleService(cfg, db, logger)
@@ -65,8 +66,10 @@ func runServe(ctx context.Context) error {
 	router := api.NewRouter(api.Deps{
 		Logger:   logger,
 		DB:       db,
+		Items:    items,
 		Listings: listings,
 		Auctions: auctions,
+		Wallets:  wallets,
 		Oracle:   oracles,
 	})
 	srv := api.NewServer(":"+cfg.HTTPPort, router, logger)
