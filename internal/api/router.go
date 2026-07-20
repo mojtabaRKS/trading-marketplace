@@ -1,38 +1,38 @@
-// Package api holds the HTTP server: routing and server lifecycle. Middlewares
-// live in the api/middleware package.
+// Package api holds the HTTP server: routing and server lifecycle. Handlers
+// live in the api/handler package, request/response types in api/dto, and
+// middlewares in the api/middleware package.
 package api
 
 import (
-	"net/http"
-	"strconv"
-
-	"github.com/gin-gonic/gin"
 	swaggerfiles "github.com/swaggo/files"
 	ginswagger "github.com/swaggo/gin-swagger"
 
+	"github.com/gin-gonic/gin"
+
 	_ "github.com/herotech/market-dragon/docs"
+	"github.com/herotech/market-dragon/internal/api/handler"
 	"github.com/herotech/market-dragon/internal/api/middleware"
 )
 
 // NewRouter builds the Gin engine, wiring middlewares and routes.
-func NewRouter(deps Deps) *gin.Engine {
+func NewRouter(deps handler.Deps) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
 	r.Use(middleware.Recovery())
 	r.Use(middleware.RequestLogger(deps.Logger))
 
-	r.GET("/health", health)
+	r.GET("/health", handler.Health)
 
 	// Interactive API docs (generated from swaggo annotations).
 	r.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
 
 	// Reads.
-	r.GET("/items", listItems(deps))
-	r.GET("/items/:id", getItem(deps))
-	r.GET("/auctions", listAuctions(deps))
-	r.GET("/auctions/:id", getAuction(deps))
-	r.GET("/guilds/:id/wallet", getWallet(deps))
+	r.GET("/items", handler.ListItems(deps))
+	r.GET("/items/:id", handler.GetItem(deps))
+	r.GET("/auctions", handler.ListAuctions(deps))
+	r.GET("/auctions/:id", handler.GetAuction(deps))
+	r.GET("/guilds/:id/wallet", handler.GetWallet(deps))
 
 	// State-changing endpoints are guarded by the idempotency middleware so
 	// retries/duplicates cannot cause a double effect.
@@ -40,39 +40,12 @@ func NewRouter(deps Deps) *gin.Engine {
 	if deps.DB != nil {
 		mutating.Use(middleware.Idempotency(deps.DB, deps.Logger))
 	}
-	mutating.POST("/items", createItem(deps))
-	mutating.POST("/items/:id/list", listItemForSale(deps))
-	mutating.POST("/items/:id/auction", openAuction(deps))
-	mutating.POST("/items/:id/buy", buyItem(deps))
-	mutating.POST("/items/:id/bid", placeBid(deps))
-	mutating.DELETE("/items/:id/bid/:bid_id", cancelBid(deps))
+	mutating.POST("/items", handler.CreateItem(deps))
+	mutating.POST("/items/:id/list", handler.ListItemForSale(deps))
+	mutating.POST("/items/:id/auction", handler.OpenAuction(deps))
+	mutating.POST("/items/:id/buy", handler.BuyItem(deps))
+	mutating.POST("/items/:id/bid", handler.PlaceBid(deps))
+	mutating.DELETE("/items/:id/bid/:bid_id", handler.CancelBid(deps))
 
 	return r
-}
-
-// HealthResponse is the liveness probe body.
-type HealthResponse struct {
-	Status string `json:"status" example:"ok"`
-}
-
-// health godoc
-//
-//	@Summary		Liveness probe
-//	@Description	Return 200 while the service is up.
-//	@Tags			system
-//	@Produce		json
-//	@Success		200	{object}	HealthResponse
-//	@Router			/health [get]
-func health(c *gin.Context) {
-	c.JSON(http.StatusOK, HealthResponse{Status: "ok"})
-}
-
-// parseUintParam parses a uint64 path parameter, writing a 400 on failure.
-func parseUintParam(c *gin.Context, name string) (uint64, bool) {
-	v, err := strconv.ParseUint(c.Param(name), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid " + name})
-		return 0, false
-	}
-	return v, true
 }

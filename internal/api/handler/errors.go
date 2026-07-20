@@ -1,4 +1,4 @@
-package api
+package handler
 
 import (
 	"errors"
@@ -7,13 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/herotech/market-dragon/internal/api/dto"
 	"github.com/herotech/market-dragon/internal/service"
 )
-
-// ErrorResponse is the standard JSON error body returned by the API.
-type ErrorResponse struct {
-	Error string `json:"error" example:"item not found"`
-}
 
 // statusForError maps a domain error to an HTTP status code.
 func statusForError(err error) int {
@@ -32,6 +28,9 @@ func statusForError(err error) int {
 		errors.Is(err, service.ErrAuctionEnded):
 		return http.StatusConflict
 	case errors.Is(err, service.ErrInvalidAmount),
+		errors.Is(err, service.ErrNameRequired),
+		errors.Is(err, service.ErrInvalidTier),
+		errors.Is(err, service.ErrInvalidStock),
 		errors.Is(err, service.ErrSelfPurchase),
 		errors.Is(err, service.ErrSelfBid),
 		errors.Is(err, service.ErrItemNotOwned),
@@ -52,8 +51,8 @@ func respondError(c *gin.Context, logger *slog.Logger, err error) {
 	status := statusForError(err)
 	if status == http.StatusInternalServerError {
 		logger.Error("request failed", slog.Any("error", err))
-		c.JSON(status, ErrorResponse{Error: "internal error"})
+		c.JSON(status, dto.ErrorResponse{Error: "internal error"})
 		return
 	}
-	c.JSON(status, ErrorResponse{Error: err.Error()})
+	c.JSON(status, dto.ErrorResponse{Error: err.Error()})
 }

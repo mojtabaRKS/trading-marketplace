@@ -1,20 +1,20 @@
 basePath: /
 definitions:
-  api.AuctionDetailResponse:
+  dto.AuctionDetailResponse:
     properties:
       auction:
-        $ref: '#/definitions/api.AuctionResponse'
+        $ref: '#/definitions/dto.AuctionResponse'
       highest_bid:
-        $ref: '#/definitions/api.BidResponse'
+        $ref: '#/definitions/dto.BidResponse'
     type: object
-  api.AuctionListResponse:
+  dto.AuctionListResponse:
     properties:
       auctions:
         items:
-          $ref: '#/definitions/api.AuctionResponse'
+          $ref: '#/definitions/dto.AuctionResponse'
         type: array
     type: object
-  api.AuctionResponse:
+  dto.AuctionResponse:
     properties:
       ends_at:
         example: "2026-01-02T00:00:00Z"
@@ -39,7 +39,7 @@ definitions:
       winner_guild_id:
         type: integer
     type: object
-  api.BidResponse:
+  dto.BidResponse:
     properties:
       amount:
         example: 1200
@@ -57,7 +57,7 @@ definitions:
         example: active
         type: string
     type: object
-  api.BuyRequest:
+  dto.BuyRequest:
     properties:
       buyer_guild_id:
         example: 1
@@ -65,7 +65,7 @@ definitions:
     required:
     - buyer_guild_id
     type: object
-  api.CancelBidRequest:
+  dto.CancelBidRequest:
     properties:
       bidder_guild_id:
         example: 1
@@ -73,7 +73,7 @@ definitions:
     required:
     - bidder_guild_id
     type: object
-  api.CreateItemRequest:
+  dto.CreateItemRequest:
     properties:
       name:
         example: Elven Bow
@@ -92,35 +92,35 @@ definitions:
     - owner_guild_id
     - tier
     type: object
-  api.ErrorResponse:
+  dto.ErrorResponse:
     properties:
       error:
         example: item not found
         type: string
     type: object
-  api.HealthResponse:
+  dto.HealthResponse:
     properties:
       status:
         example: ok
         type: string
     type: object
-  api.ItemDetailResponse:
+  dto.ItemDetailResponse:
     properties:
       auction:
-        $ref: '#/definitions/api.AuctionResponse'
+        $ref: '#/definitions/dto.AuctionResponse'
       item:
-        $ref: '#/definitions/api.ItemResponse'
+        $ref: '#/definitions/dto.ItemResponse'
       listing:
-        $ref: '#/definitions/api.ListingResponse'
+        $ref: '#/definitions/dto.ListingResponse'
     type: object
-  api.ItemListResponse:
+  dto.ItemListResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/api.ItemResponse'
+          $ref: '#/definitions/dto.ItemResponse'
         type: array
     type: object
-  api.ItemResponse:
+  dto.ItemResponse:
     properties:
       id:
         example: 3
@@ -144,7 +144,7 @@ definitions:
         example: legendary
         type: string
     type: object
-  api.ListForSaleRequest:
+  dto.ListForSaleRequest:
     properties:
       price:
         example: 500
@@ -156,7 +156,7 @@ definitions:
     - price
     - seller_guild_id
     type: object
-  api.ListingResponse:
+  dto.ListingResponse:
     properties:
       buyer_guild_id:
         type: integer
@@ -176,7 +176,7 @@ definitions:
         example: open
         type: string
     type: object
-  api.OpenAuctionRequest:
+  dto.OpenAuctionRequest:
     properties:
       seller_guild_id:
         example: 3
@@ -184,7 +184,7 @@ definitions:
     required:
     - seller_guild_id
     type: object
-  api.PlaceBidRequest:
+  dto.PlaceBidRequest:
     properties:
       amount:
         example: 1200
@@ -196,13 +196,13 @@ definitions:
     - amount
     - bidder_guild_id
     type: object
-  api.StatusResponse:
+  dto.StatusResponse:
     properties:
       status:
         example: cancelled
         type: string
     type: object
-  api.WalletResponse:
+  dto.WalletResponse:
     properties:
       available:
         example: 98800
@@ -238,7 +238,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.AuctionListResponse'
+            $ref: '#/definitions/dto.AuctionListResponse'
       summary: List active auctions
       tags:
       - auctions
@@ -257,11 +257,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.AuctionDetailResponse'
+            $ref: '#/definitions/dto.AuctionDetailResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Get an auction
       tags:
       - auctions
@@ -281,11 +281,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.WalletResponse'
+            $ref: '#/definitions/dto.WalletResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Get a guild wallet
       tags:
       - guilds
@@ -298,7 +298,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.HealthResponse'
+            $ref: '#/definitions/dto.HealthResponse'
       summary: Liveness probe
       tags:
       - system
@@ -311,7 +311,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.ItemListResponse'
+            $ref: '#/definitions/dto.ItemListResponse'
       summary: List items
       tags:
       - items
@@ -330,22 +330,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/api.CreateItemRequest'
+          $ref: '#/definitions/dto.CreateItemRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/api.ItemResponse'
+            $ref: '#/definitions/dto.ItemResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Register an item
       tags:
       - items
@@ -365,11 +365,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.ItemDetailResponse'
+            $ref: '#/definitions/dto.ItemDetailResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Get an item
       tags:
       - items
@@ -394,26 +394,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/api.OpenAuctionRequest'
+          $ref: '#/definitions/dto.OpenAuctionRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/api.AuctionResponse'
+            $ref: '#/definitions/dto.AuctionResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Open an auction
       tags:
       - items
@@ -438,30 +438,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/api.PlaceBidRequest'
+          $ref: '#/definitions/dto.PlaceBidRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/api.BidResponse'
+            $ref: '#/definitions/dto.BidResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "402":
           description: Payment Required
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Place a bid
       tags:
       - items
@@ -491,22 +491,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/api.CancelBidRequest'
+          $ref: '#/definitions/dto.CancelBidRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.StatusResponse'
+            $ref: '#/definitions/dto.StatusResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Cancel a bid
       tags:
       - items
@@ -531,30 +531,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/api.BuyRequest'
+          $ref: '#/definitions/dto.BuyRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.ListingResponse'
+            $ref: '#/definitions/dto.ListingResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "402":
           description: Payment Required
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Buy an item
       tags:
       - items
@@ -579,26 +579,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/api.ListForSaleRequest'
+          $ref: '#/definitions/dto.ListForSaleRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/api.ListingResponse'
+            $ref: '#/definitions/dto.ListingResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/api.ErrorResponse'
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: List an item for sale
       tags:
       - items

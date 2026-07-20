@@ -34,7 +34,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.AuctionListResponse"
+                            "$ref": "#/definitions/dto.AuctionListResponse"
                         }
                     }
                 }
@@ -63,13 +63,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.AuctionDetailResponse"
+                            "$ref": "#/definitions/dto.AuctionDetailResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -98,13 +98,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.WalletResponse"
+                            "$ref": "#/definitions/dto.WalletResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -124,7 +124,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.HealthResponse"
+                            "$ref": "#/definitions/dto.HealthResponse"
                         }
                     }
                 }
@@ -144,7 +144,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.ItemListResponse"
+                            "$ref": "#/definitions/dto.ItemListResponse"
                         }
                     }
                 }
@@ -174,7 +174,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.CreateItemRequest"
+                            "$ref": "#/definitions/dto.CreateItemRequest"
                         }
                     }
                 ],
@@ -182,19 +182,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/api.ItemResponse"
+                            "$ref": "#/definitions/dto.ItemResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -223,13 +223,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.ItemDetailResponse"
+                            "$ref": "#/definitions/dto.ItemDetailResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -268,7 +268,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.OpenAuctionRequest"
+                            "$ref": "#/definitions/dto.OpenAuctionRequest"
                         }
                     }
                 ],
@@ -276,25 +276,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/api.AuctionResponse"
+                            "$ref": "#/definitions/dto.AuctionResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -333,7 +333,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.PlaceBidRequest"
+                            "$ref": "#/definitions/dto.PlaceBidRequest"
                         }
                     }
                 ],
@@ -341,31 +341,31 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/api.BidResponse"
+                            "$ref": "#/definitions/dto.BidResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "402": {
                         "description": "Payment Required",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -411,7 +411,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.CancelBidRequest"
+                            "$ref": "#/definitions/dto.CancelBidRequest"
                         }
                     }
                 ],
@@ -419,19 +419,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.StatusResponse"
+                            "$ref": "#/definitions/dto.StatusResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -470,7 +470,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.BuyRequest"
+                            "$ref": "#/definitions/dto.BuyRequest"
                         }
                     }
                 ],
@@ -478,31 +478,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.ListingResponse"
+                            "$ref": "#/definitions/dto.ListingResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "402": {
                         "description": "Payment Required",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -541,7 +541,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.ListForSaleRequest"
+                            "$ref": "#/definitions/dto.ListForSaleRequest"
                         }
                     }
                 ],
@@ -549,25 +549,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/api.ListingResponse"
+                            "$ref": "#/definitions/dto.ListingResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -575,29 +575,29 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "api.AuctionDetailResponse": {
+        "dto.AuctionDetailResponse": {
             "type": "object",
             "properties": {
                 "auction": {
-                    "$ref": "#/definitions/api.AuctionResponse"
+                    "$ref": "#/definitions/dto.AuctionResponse"
                 },
                 "highest_bid": {
-                    "$ref": "#/definitions/api.BidResponse"
+                    "$ref": "#/definitions/dto.BidResponse"
                 }
             }
         },
-        "api.AuctionListResponse": {
+        "dto.AuctionListResponse": {
             "type": "object",
             "properties": {
                 "auctions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/api.AuctionResponse"
+                        "$ref": "#/definitions/dto.AuctionResponse"
                     }
                 }
             }
         },
-        "api.AuctionResponse": {
+        "dto.AuctionResponse": {
             "type": "object",
             "properties": {
                 "ends_at": {
@@ -632,7 +632,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.BidResponse": {
+        "dto.BidResponse": {
             "type": "object",
             "properties": {
                 "amount": {
@@ -657,7 +657,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.BuyRequest": {
+        "dto.BuyRequest": {
             "type": "object",
             "required": [
                 "buyer_guild_id"
@@ -669,7 +669,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.CancelBidRequest": {
+        "dto.CancelBidRequest": {
             "type": "object",
             "required": [
                 "bidder_guild_id"
@@ -681,7 +681,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.CreateItemRequest": {
+        "dto.CreateItemRequest": {
             "type": "object",
             "required": [
                 "name",
@@ -707,7 +707,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ErrorResponse": {
+        "dto.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -716,7 +716,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.HealthResponse": {
+        "dto.HealthResponse": {
             "type": "object",
             "properties": {
                 "status": {
@@ -725,32 +725,32 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ItemDetailResponse": {
+        "dto.ItemDetailResponse": {
             "type": "object",
             "properties": {
                 "auction": {
-                    "$ref": "#/definitions/api.AuctionResponse"
+                    "$ref": "#/definitions/dto.AuctionResponse"
                 },
                 "item": {
-                    "$ref": "#/definitions/api.ItemResponse"
+                    "$ref": "#/definitions/dto.ItemResponse"
                 },
                 "listing": {
-                    "$ref": "#/definitions/api.ListingResponse"
+                    "$ref": "#/definitions/dto.ListingResponse"
                 }
             }
         },
-        "api.ItemListResponse": {
+        "dto.ItemListResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/api.ItemResponse"
+                        "$ref": "#/definitions/dto.ItemResponse"
                     }
                 }
             }
         },
-        "api.ItemResponse": {
+        "dto.ItemResponse": {
             "type": "object",
             "properties": {
                 "id": {
@@ -783,7 +783,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ListForSaleRequest": {
+        "dto.ListForSaleRequest": {
             "type": "object",
             "required": [
                 "price",
@@ -800,7 +800,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.ListingResponse": {
+        "dto.ListingResponse": {
             "type": "object",
             "properties": {
                 "buyer_guild_id": {
@@ -828,7 +828,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.OpenAuctionRequest": {
+        "dto.OpenAuctionRequest": {
             "type": "object",
             "required": [
                 "seller_guild_id"
@@ -840,7 +840,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.PlaceBidRequest": {
+        "dto.PlaceBidRequest": {
             "type": "object",
             "required": [
                 "amount",
@@ -857,7 +857,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.StatusResponse": {
+        "dto.StatusResponse": {
             "type": "object",
             "properties": {
                 "status": {
@@ -866,7 +866,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api.WalletResponse": {
+        "dto.WalletResponse": {
             "type": "object",
             "properties": {
                 "available": {

@@ -1,4 +1,7 @@
-package api
+// Package handler holds the HTTP handlers and their shared glue (dependencies,
+// error mapping, and path-parameter parsing). Request/response types live in
+// the api/dto package; routing lives in the api package.
+package handler
 
 import (
 	"log/slog"

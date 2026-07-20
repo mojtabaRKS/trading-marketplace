@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/herotech/market-dragon/internal/api"
+	"github.com/herotech/market-dragon/internal/api/handler"
 	"github.com/herotech/market-dragon/internal/config"
 	"github.com/herotech/market-dragon/internal/infra/database"
 	"github.com/herotech/market-dragon/internal/infra/oracle"
@@ -63,7 +64,7 @@ func runServe(ctx context.Context) error {
 	auctions := service.NewAuctionService(db, wallets, cfg.AuctionWindow, cfg.AuctionExtension)
 	oracles := buildOracleService(cfg, db, logger)
 
-	router := api.NewRouter(api.Deps{
+	router := api.NewRouter(handler.Deps{
 		Logger:   logger,
 		DB:       db,
 		Items:    items,
