@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: marketd
       POSTGRES_DB: marketd
     ports:
-      - "5433:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - dbdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,19 +20,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
-      HTTP_PORT: "8080"
+      # Inside the compose network the app reaches Postgres via the service
+      # name and its internal port, overriding the localhost values in .env
+      # (which are meant for running the app directly on the host).
       DB_HOST: db
       DB_PORT: "5432"
-      DB_USER: marketd
-      DB_PASSWORD: marketd
-      DB_NAME: marketd
-      DB_SSLMODE: disable
-      LOG_LEVEL: info
-      AUTO_MIGRATE: "true"
-      SEED: "true"
     ports:
-      - "8080:8080"
+      - "${DOCKER_PORT:-8080}:${HTTP_PORT:-8080}"
 
 volumes:
   dbdata:

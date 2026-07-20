@@ -245,14 +245,27 @@ curl localhost:8080/guilds/1/wallet   # total, reserved, and available balance
 
 ```bash
 make test              # unit tests (with the race detector)
-make test-integration  # integration tests against PostgreSQL on port 5433
+make test-integration  # service-level integration tests against PostgreSQL on 5433
+make test-e2e          # HTTP end-to-end tests: drive the full router over the DB
+make test-report       # run everything and write a visual test-report.html
 ```
 
-Integration tests need a running PostgreSQL (`docker compose up -d db`).
-They cover the main flows: one sale under concurrent buys, the daily limit,
-no over-spending in the wallet, auction bid rules and money moves, anti-snipe,
-settlement (winner, no bids, and repeat runs), oracle checks with last good
-price, and repeated requests.
+Integration and e2e tests need a running PostgreSQL (`docker compose up -d db`).
+
+- **Integration tests** check the service layer: one sale under concurrent buys,
+  the daily limit, no over-spending in the wallet, auction bid rules and money
+  moves, anti-snipe, settlement (winner, no bids, and repeat runs), oracle checks
+  with last good price, and repeated requests.
+- **End-to-end tests** drive the real HTTP API (router + handlers + services)
+  and assert the business rules through the wire: list/buy, no double-sale, no
+  self-purchase, no self-bid, the +5% rule, fund reservation, cancel rules, one
+  active auction per item, and idempotent requests.
+- **`make test-report`** runs unit + integration + e2e with `go test -json` and
+  renders a self-contained `test-report.html` dashboard (per-package, per-test
+  pass/fail and durations). Open it in a browser.
+
+For a full list of tests, which business rule each one checks, and step-by-step
+detail for the e2e tests, see [`docs/TESTING.md`](docs/TESTING.md).
 
 ---
 

@@ -3,6 +3,8 @@
 *.exe
 *.test
 *.out
+test-report.html
+/testreport
 .env
 .DS_Store
 
