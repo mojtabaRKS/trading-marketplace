@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 // ListingService implements the fixed-price limit-order flow for Common and
@@ -28,12 +28,12 @@ func NewListingService(db *gorm.DB, wallets *WalletService) *ListingService {
 }
 
 // CreateListing lists a seller-owned Common/Rare item at a fixed price.
-func (s *ListingService) CreateListing(ctx context.Context, sellerGuildID, itemID uint64, price int64) (*repository.Listing, error) {
+func (s *ListingService) CreateListing(ctx context.Context, sellerGuildID, itemID uint64, price int64) (*model.Listing, error) {
 	if err := EnsurePositive(price); err != nil {
 		return nil, err
 	}
 
-	var listing repository.Listing
+	var listing model.Listing
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		item, err := lockItem(tx, itemID)
 		if err != nil {
@@ -42,18 +42,18 @@ func (s *ListingService) CreateListing(ctx context.Context, sellerGuildID, itemI
 		if item.OwnerGuildID != sellerGuildID {
 			return ErrItemNotOwned
 		}
-		if item.Tier == repository.TierLegendary {
+		if item.Tier == model.TierLegendary {
 			return ErrLegendaryNeedsAuction
 		}
 		if item.Stock < 1 {
 			return ErrOutOfStock
 		}
 
-		listing = repository.Listing{
+		listing = model.Listing{
 			ItemID:        itemID,
 			SellerGuildID: sellerGuildID,
 			Price:         price,
-			Status:        repository.ListingOpen,
+			Status:        model.ListingOpen,
 			CreatedAt:     s.now(),
 		}
 		if err := tx.Create(&listing).Error; err != nil {
@@ -70,15 +70,15 @@ func (s *ListingService) CreateListing(ctx context.Context, sellerGuildID, itemI
 // Buy purchases an open listing: it validates funds and the buyer's daily cap,
 // moves money seller<-buyer, transfers one unit of the item, and marks the
 // listing sold — atomically.
-func (s *ListingService) Buy(ctx context.Context, buyerGuildID, listingID uint64) (*repository.Listing, error) {
-	var listing repository.Listing
+func (s *ListingService) Buy(ctx context.Context, buyerGuildID, listingID uint64) (*model.Listing, error) {
+	var listing model.Listing
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Lock the listing first: this is what serializes concurrent buys.
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			First(&listing, listingID).Error; err != nil {
 			return notFoundOr(err, "lock listing")
 		}
-		if listing.Status != repository.ListingOpen {
+		if listing.Status != model.ListingOpen {
 			return ErrListingNotOpen
 		}
 		if listing.SellerGuildID == buyerGuildID {
@@ -100,7 +100,7 @@ func (s *ListingService) Buy(ctx context.Context, buyerGuildID, listingID uint64
 		if err := lockWallet(tx, buyerGuildID); err != nil {
 			return err
 		}
-		var buyer repository.Guild
+		var buyer model.Guild
 		if err := tx.First(&buyer, buyerGuildID).Error; err != nil {
 			return notFoundOr(err, "load buyer guild")
 		}
@@ -113,26 +113,26 @@ func (s *ListingService) Buy(ctx context.Context, buyerGuildID, listingID uint64
 		}
 
 		// Money moves within the same transaction.
-		if err := s.wallets.DebitTx(tx, buyerGuildID, price, repository.RefListing, listingID); err != nil {
+		if err := s.wallets.DebitTx(tx, buyerGuildID, price, model.RefListing, listingID); err != nil {
 			return err
 		}
-		if err := s.wallets.CreditTx(tx, listing.SellerGuildID, price, repository.RefListing, listingID); err != nil {
+		if err := s.wallets.CreditTx(tx, listing.SellerGuildID, price, model.RefListing, listingID); err != nil {
 			return err
 		}
 
 		// Transfer one unit: decrement seller stock, grant the buyer a unit.
 		item.Stock--
 		if item.Stock == 0 {
-			item.Status = repository.ItemSold
+			item.Status = model.ItemSold
 		}
 		if err := tx.Save(item).Error; err != nil {
 			return fmt.Errorf("update seller item: %w", err)
 		}
-		bought := repository.Item{
+		bought := model.Item{
 			Name:         item.Name,
 			Tier:         item.Tier,
 			OwnerGuildID: buyerGuildID,
-			Status:       repository.ItemAvailable,
+			Status:       model.ItemAvailable,
 			Stock:        1,
 			CreatedAt:    s.now(),
 			UpdatedAt:    s.now(),
@@ -147,7 +147,7 @@ func (s *ListingService) Buy(ctx context.Context, buyerGuildID, listingID uint64
 
 		// Mark the listing sold.
 		now := s.now()
-		listing.Status = repository.ListingSold
+		listing.Status = model.ListingSold
 		listing.BuyerGuildID = &buyerGuildID
 		listing.SoldAt = &now
 		if err := tx.Save(&listing).Error; err != nil {
@@ -163,10 +163,10 @@ func (s *ListingService) Buy(ctx context.Context, buyerGuildID, listingID uint64
 
 // OpenListingByItem returns the current open listing for an item, or
 // ErrNotFound if the item is not currently listed for a fixed price.
-func (s *ListingService) OpenListingByItem(ctx context.Context, itemID uint64) (*repository.Listing, error) {
-	var listing repository.Listing
+func (s *ListingService) OpenListingByItem(ctx context.Context, itemID uint64) (*model.Listing, error) {
+	var listing model.Listing
 	err := s.db.WithContext(ctx).
-		Where("item_id = ? AND status = ?", itemID, repository.ListingOpen).
+		Where("item_id = ? AND status = ?", itemID, model.ListingOpen).
 		Order("id DESC").
 		First(&listing).Error
 	if err != nil {
@@ -177,7 +177,7 @@ func (s *ListingService) OpenListingByItem(ctx context.Context, itemID uint64) (
 
 // BuyByItem buys the open fixed-price listing for the given item. It resolves
 // the listing, then runs the same atomic purchase as Buy.
-func (s *ListingService) BuyByItem(ctx context.Context, buyerGuildID, itemID uint64) (*repository.Listing, error) {
+func (s *ListingService) BuyByItem(ctx context.Context, buyerGuildID, itemID uint64) (*model.Listing, error) {
 	listing, err := s.OpenListingByItem(ctx, itemID)
 	if err != nil {
 		return nil, err
@@ -187,7 +187,7 @@ func (s *ListingService) BuyByItem(ctx context.Context, buyerGuildID, itemID uin
 
 // dailySpent returns how much the guild has spent today (0 if no row yet).
 func (s *ListingService) dailySpent(tx *gorm.DB, guildID uint64) (int64, error) {
-	var dpt repository.DailyPurchaseTotal
+	var dpt model.DailyPurchaseTotal
 	err := tx.Where("guild_id = ? AND day = ?", guildID, s.today()).First(&dpt).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return 0, nil
@@ -200,7 +200,7 @@ func (s *ListingService) dailySpent(tx *gorm.DB, guildID uint64) (int64, error) 
 
 // addDailySpent increments the guild's spend for today (upsert).
 func (s *ListingService) addDailySpent(tx *gorm.DB, guildID uint64, amount int64) error {
-	row := repository.DailyPurchaseTotal{GuildID: guildID, Day: s.today(), TotalSpent: amount}
+	row := model.DailyPurchaseTotal{GuildID: guildID, Day: s.today(), TotalSpent: amount}
 	err := tx.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "guild_id"}, {Name: "day"}},
 		DoUpdates: clause.Assignments(map[string]any{"total_spent": gorm.Expr("daily_purchase_totals.total_spent + ?", amount)}),
@@ -217,8 +217,8 @@ func (s *ListingService) today() time.Time {
 }
 
 // lockItem loads and row-locks an item.
-func lockItem(tx *gorm.DB, itemID uint64) (*repository.Item, error) {
-	var item repository.Item
+func lockItem(tx *gorm.DB, itemID uint64) (*model.Item, error) {
+	var item model.Item
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, itemID).Error; err != nil {
 		return nil, notFoundOr(err, "lock item")
 	}
@@ -227,7 +227,7 @@ func lockItem(tx *gorm.DB, itemID uint64) (*repository.Item, error) {
 
 // lockWallet row-locks a guild's wallet (used to serialize a guild's purchases).
 func lockWallet(tx *gorm.DB, guildID uint64) error {
-	var w repository.Wallet
+	var w model.Wallet
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("guild_id = ?", guildID).First(&w).Error; err != nil {
 		return fmt.Errorf("lock wallet for guild %d: %w", guildID, err)

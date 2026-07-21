@@ -6,12 +6,12 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/herotech/market-dragon/internal/api/dto"
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 // itemResponse builds an ItemResponse and attaches the current Oracle price
 // (when one is available).
-func (d Deps) itemResponse(itemID uint64, item *repository.Item) dto.ItemResponse {
+func (d Deps) itemResponse(itemID uint64, item *model.Item) dto.ItemResponse {
 	resp := dto.NewItemResponse(item)
 	if p, err := d.Oracle.CurrentPrice(itemID); err == nil {
 		amount := p.Amount

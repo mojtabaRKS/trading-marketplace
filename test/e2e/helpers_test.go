@@ -26,7 +26,7 @@ import (
 	"github.com/herotech/market-dragon/internal/config"
 	"github.com/herotech/market-dragon/internal/infra/database"
 	"github.com/herotech/market-dragon/internal/infra/oracle"
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 	"github.com/herotech/market-dragon/internal/service"
 )
 
@@ -72,7 +72,7 @@ func setupApp(t *testing.T) *app {
 		Auctions: auctions,
 		Wallets:  wallets,
 		Oracle:   oracles,
-	})
+	}, false)
 
 	return &app{t: t, engine: engine, db: db, oracle: oracles, src: src}
 }
@@ -117,10 +117,10 @@ func (a *app) createGuild(id uint64, total, dailyCap int64) {
 	a.db.Exec("DELETE FROM daily_purchase_totals WHERE guild_id = ?", id)
 	a.db.Exec("DELETE FROM wallets WHERE guild_id = ?", id)
 	a.db.Exec("DELETE FROM guilds WHERE id = ?", id)
-	if err := a.db.Create(&repository.Guild{ID: id, Name: fmt.Sprintf("E2E-%d", id), DailyPurchaseCap: dailyCap}).Error; err != nil {
+	if err := a.db.Create(&model.Guild{ID: id, Name: fmt.Sprintf("E2E-%d", id), DailyPurchaseCap: dailyCap}).Error; err != nil {
 		a.t.Fatalf("create guild %d: %v", id, err)
 	}
-	if err := a.db.Create(&repository.Wallet{GuildID: id, TotalBalance: total}).Error; err != nil {
+	if err := a.db.Create(&model.Wallet{GuildID: id, TotalBalance: total}).Error; err != nil {
 		a.t.Fatalf("create wallet %d: %v", id, err)
 	}
 }

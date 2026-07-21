@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/herotech/market-dragon/internal/repository"
+import "github.com/herotech/market-dragon/internal/model"
 
 // CreateItemRequest registers a new item into the market. The item is not for
 // sale until it is listed (Common/Rare) or auctioned (Legendary).
@@ -73,7 +73,7 @@ type ItemDetailResponse struct {
 
 // NewItemResponse builds an ItemResponse from a model. The live price is set by
 // the caller (it comes from the Oracle service, not the item row).
-func NewItemResponse(item *repository.Item) ItemResponse {
+func NewItemResponse(item *model.Item) ItemResponse {
 	return ItemResponse{
 		ID:           item.ID,
 		Name:         item.Name,
@@ -85,7 +85,7 @@ func NewItemResponse(item *repository.Item) ItemResponse {
 }
 
 // NewListingResponse builds a ListingResponse from a model.
-func NewListingResponse(l *repository.Listing) ListingResponse {
+func NewListingResponse(l *model.Listing) ListingResponse {
 	return ListingResponse{
 		ID:            l.ID,
 		ItemID:        l.ItemID,

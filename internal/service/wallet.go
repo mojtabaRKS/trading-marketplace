@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 // WalletService performs auditable money movements. Every mutation locks the
@@ -35,12 +35,12 @@ func (s *WalletService) Reserve(ctx context.Context, guildID uint64, amount int6
 
 // ReserveTx is Reserve within an existing transaction.
 func (s *WalletService) ReserveTx(tx *gorm.DB, guildID uint64, amount int64, refType string, refID uint64) error {
-	return withWalletTx(tx, guildID, func(w *repository.Wallet) error {
+	return withWalletTx(tx, guildID, func(w *model.Wallet) error {
 		if err := EnsureCanReserve(w.TotalBalance, w.ReservedAmount, amount); err != nil {
 			return err
 		}
 		w.ReservedAmount += amount
-		return saveAndRecord(tx, w, repository.TxReserve, amount, refType, refID)
+		return saveAndRecord(tx, w, model.TxReserve, amount, refType, refID)
 	})
 }
 
@@ -51,12 +51,12 @@ func (s *WalletService) Release(ctx context.Context, guildID uint64, amount int6
 
 // ReleaseTx is Release within an existing transaction.
 func (s *WalletService) ReleaseTx(tx *gorm.DB, guildID uint64, amount int64, refType string, refID uint64) error {
-	return withWalletTx(tx, guildID, func(w *repository.Wallet) error {
+	return withWalletTx(tx, guildID, func(w *model.Wallet) error {
 		if err := EnsureCanRelease(w.ReservedAmount, amount); err != nil {
 			return err
 		}
 		w.ReservedAmount -= amount
-		return saveAndRecord(tx, w, repository.TxRelease, amount, refType, refID)
+		return saveAndRecord(tx, w, model.TxRelease, amount, refType, refID)
 	})
 }
 
@@ -67,12 +67,12 @@ func (s *WalletService) Debit(ctx context.Context, guildID uint64, amount int64,
 
 // DebitTx is Debit within an existing transaction.
 func (s *WalletService) DebitTx(tx *gorm.DB, guildID uint64, amount int64, refType string, refID uint64) error {
-	return withWalletTx(tx, guildID, func(w *repository.Wallet) error {
+	return withWalletTx(tx, guildID, func(w *model.Wallet) error {
 		if err := EnsureSufficientAvailable(w.TotalBalance, w.ReservedAmount, amount); err != nil {
 			return err
 		}
 		w.TotalBalance -= amount
-		return saveAndRecord(tx, w, repository.TxDebit, amount, refType, refID)
+		return saveAndRecord(tx, w, model.TxDebit, amount, refType, refID)
 	})
 }
 
@@ -83,12 +83,12 @@ func (s *WalletService) Credit(ctx context.Context, guildID uint64, amount int64
 
 // CreditTx is Credit within an existing transaction.
 func (s *WalletService) CreditTx(tx *gorm.DB, guildID uint64, amount int64, refType string, refID uint64) error {
-	return withWalletTx(tx, guildID, func(w *repository.Wallet) error {
+	return withWalletTx(tx, guildID, func(w *model.Wallet) error {
 		if err := EnsurePositive(amount); err != nil {
 			return err
 		}
 		w.TotalBalance += amount
-		return saveAndRecord(tx, w, repository.TxCredit, amount, refType, refID)
+		return saveAndRecord(tx, w, model.TxCredit, amount, refType, refID)
 	})
 }
 
@@ -100,13 +100,13 @@ func (s *WalletService) SettleReserved(ctx context.Context, guildID uint64, amou
 
 // SettleReservedTx is SettleReserved within an existing transaction.
 func (s *WalletService) SettleReservedTx(tx *gorm.DB, guildID uint64, amount int64, refType string, refID uint64) error {
-	return withWalletTx(tx, guildID, func(w *repository.Wallet) error {
+	return withWalletTx(tx, guildID, func(w *model.Wallet) error {
 		if err := EnsureCanRelease(w.ReservedAmount, amount); err != nil {
 			return err
 		}
 		w.TotalBalance -= amount
 		w.ReservedAmount -= amount
-		return saveAndRecord(tx, w, repository.TxDebit, amount, refType, refID)
+		return saveAndRecord(tx, w, model.TxDebit, amount, refType, refID)
 	})
 }
 
@@ -121,7 +121,7 @@ type WalletBalance struct {
 // Balance returns a guild's current wallet balance. Available is derived as
 // Total - Reserved (never stored).
 func (s *WalletService) Balance(ctx context.Context, guildID uint64) (*WalletBalance, error) {
-	var w repository.Wallet
+	var w model.Wallet
 	if err := s.db.WithContext(ctx).Where("guild_id = ?", guildID).First(&w).Error; err != nil {
 		return nil, notFoundOr(err, "load wallet")
 	}
@@ -138,8 +138,8 @@ func (s *WalletService) inTx(ctx context.Context, fn func(*gorm.DB) error) error
 }
 
 // withWalletTx locks the guild's wallet row within tx and runs fn against it.
-func withWalletTx(tx *gorm.DB, guildID uint64, fn func(*repository.Wallet) error) error {
-	var w repository.Wallet
+func withWalletTx(tx *gorm.DB, guildID uint64, fn func(*model.Wallet) error) error {
+	var w model.Wallet
 	if err := tx.
 		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("guild_id = ?", guildID).
@@ -150,11 +150,11 @@ func withWalletTx(tx *gorm.DB, guildID uint64, fn func(*repository.Wallet) error
 }
 
 // saveAndRecord persists the wallet and appends a ledger entry.
-func saveAndRecord(tx *gorm.DB, w *repository.Wallet, txType string, amount int64, refType string, refID uint64) error {
+func saveAndRecord(tx *gorm.DB, w *model.Wallet, txType string, amount int64, refType string, refID uint64) error {
 	if err := tx.Save(w).Error; err != nil {
 		return fmt.Errorf("update wallet: %w", err)
 	}
-	entry := repository.WalletTransaction{
+	entry := model.WalletTransaction{
 		WalletID:  w.ID,
 		GuildID:   w.GuildID,
 		Type:      txType,

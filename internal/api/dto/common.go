@@ -1,5 +1,5 @@
 // Package dto holds the HTTP request and response types (data transfer objects)
-// and pure converters from repository models. It has no HTTP or business logic.
+// and pure converters from persistence models. It has no HTTP or business logic.
 package dto
 
 // ErrorResponse is the standard JSON error body returned by the API.

@@ -12,7 +12,7 @@ import (
 
 	"github.com/herotech/market-dragon/internal/config"
 	"github.com/herotech/market-dragon/internal/infra/database"
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 const (
@@ -44,12 +44,12 @@ func setupMarket(t *testing.T, sellerStock int, buyerCap int64) *gorm.DB {
 	db.Exec("DELETE FROM wallets WHERE guild_id IN ?", ids)
 	db.Exec("DELETE FROM guilds WHERE id IN ?", ids)
 
-	guilds := []repository.Guild{
+	guilds := []model.Guild{
 		{ID: itSeller, Name: "IT-Seller"},
 		{ID: itBuyerA, Name: "IT-BuyerA", DailyPurchaseCap: buyerCap},
 		{ID: itBuyerB, Name: "IT-BuyerB", DailyPurchaseCap: buyerCap},
 	}
-	wallets := []repository.Wallet{
+	wallets := []model.Wallet{
 		{ID: itSeller, GuildID: itSeller, TotalBalance: 0},
 		{ID: itBuyerA, GuildID: itBuyerA, TotalBalance: 1_000_000},
 		{ID: itBuyerB, GuildID: itBuyerB, TotalBalance: 1_000_000},
@@ -64,9 +64,9 @@ func setupMarket(t *testing.T, sellerStock int, buyerCap int64) *gorm.DB {
 			t.Fatalf("create wallet: %v", err)
 		}
 	}
-	item := repository.Item{
-		ID: itItem, Name: "Elven Bow", Tier: repository.TierRare,
-		OwnerGuildID: itSeller, Status: repository.ItemAvailable, Stock: sellerStock,
+	item := model.Item{
+		ID: itItem, Name: "Elven Bow", Tier: model.TierRare,
+		OwnerGuildID: itSeller, Status: model.ItemAvailable, Stock: sellerStock,
 	}
 	if err := db.Create(&item).Error; err != nil {
 		t.Fatalf("create item: %v", err)
@@ -116,16 +116,16 @@ func TestBuyConcurrentSellsOnce(t *testing.T) {
 	}
 
 	// Seller credited exactly once.
-	var seller repository.Wallet
+	var seller model.Wallet
 	db.Where("guild_id = ?", itSeller).First(&seller)
 	if seller.TotalBalance != price {
 		t.Fatalf("seller balance = %d, want %d", seller.TotalBalance, price)
 	}
 
 	// Listing is sold.
-	var got repository.Listing
+	var got model.Listing
 	db.First(&got, listing.ID)
-	if got.Status != repository.ListingSold {
+	if got.Status != model.ListingSold {
 		t.Fatalf("listing status = %s, want sold", got.Status)
 	}
 }
@@ -158,7 +158,7 @@ func TestBuyDailyCapEnforced(t *testing.T) {
 // TestListLegendaryRejected ensures legendary items cannot be listed.
 func TestListLegendaryRejected(t *testing.T) {
 	db := setupMarket(t, 1, 0)
-	db.Model(&repository.Item{}).Where("id = ?", itItem).Update("tier", repository.TierLegendary)
+	db.Model(&model.Item{}).Where("id = ?", itItem).Update("tier", model.TierLegendary)
 	listings := NewListingService(db, NewWalletService(db))
 	if _, err := listings.CreateListing(context.Background(), itSeller, itItem, 100); !errors.Is(err, ErrLegendaryNeedsAuction) {
 		t.Fatalf("listing legendary = %v, want ErrLegendaryNeedsAuction", err)

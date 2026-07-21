@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 // AuctionService implements the Legendary-only auction flow: starting an
@@ -32,8 +32,8 @@ func NewAuctionService(db *gorm.DB, wallets *WalletService, window, extension ti
 // CreateAuction opens an auction for a seller-owned Legendary item. Only one
 // active auction may exist per item (guarded by the item lock + status and the
 // partial unique index).
-func (s *AuctionService) CreateAuction(ctx context.Context, sellerGuildID, itemID uint64) (*repository.Auction, error) {
-	var auction repository.Auction
+func (s *AuctionService) CreateAuction(ctx context.Context, sellerGuildID, itemID uint64) (*model.Auction, error) {
+	var auction model.Auction
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		item, err := lockItem(tx, itemID)
 		if err != nil {
@@ -42,21 +42,21 @@ func (s *AuctionService) CreateAuction(ctx context.Context, sellerGuildID, itemI
 		if item.OwnerGuildID != sellerGuildID {
 			return ErrItemNotOwned
 		}
-		if item.Tier != repository.TierLegendary {
+		if item.Tier != model.TierLegendary {
 			return ErrNotLegendary
 		}
-		if item.Status == repository.ItemInAuction {
+		if item.Status == model.ItemInAuction {
 			return ErrActiveAuctionExists
 		}
-		if item.Status != repository.ItemAvailable {
+		if item.Status != model.ItemAvailable {
 			return ErrItemNotAvailable
 		}
 
 		now := s.now()
-		auction = repository.Auction{
+		auction = model.Auction{
 			ItemID:        itemID,
 			SellerGuildID: sellerGuildID,
-			Status:        repository.AuctionActive,
+			Status:        model.AuctionActive,
 			StartsAt:      now,
 			EndsAt:        now.Add(s.window),
 			CreatedAt:     now,
@@ -66,7 +66,7 @@ func (s *AuctionService) CreateAuction(ctx context.Context, sellerGuildID, itemI
 			return fmt.Errorf("create auction: %w", err)
 		}
 
-		item.Status = repository.ItemInAuction
+		item.Status = model.ItemInAuction
 		if err := tx.Save(item).Error; err != nil {
 			return fmt.Errorf("mark item in auction: %w", err)
 		}
@@ -80,14 +80,14 @@ func (s *AuctionService) CreateAuction(ctx context.Context, sellerGuildID, itemI
 
 // PlaceBid reserves the bid amount, releases the previous highest bidder's
 // reserve, records the bid, and applies the anti-snipe extension — atomically.
-func (s *AuctionService) PlaceBid(ctx context.Context, auctionID, bidderGuildID uint64, amount int64) (*repository.Bid, error) {
-	var bid repository.Bid
+func (s *AuctionService) PlaceBid(ctx context.Context, auctionID, bidderGuildID uint64, amount int64) (*model.Bid, error) {
+	var bid model.Bid
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		auction, err := lockAuction(tx, auctionID)
 		if err != nil {
 			return err
 		}
-		if auction.Status != repository.AuctionActive {
+		if auction.Status != model.AuctionActive {
 			return ErrAuctionNotActive
 		}
 		now := s.now()
@@ -99,9 +99,9 @@ func (s *AuctionService) PlaceBid(ctx context.Context, auctionID, bidderGuildID 
 		}
 
 		var current int64
-		var prev *repository.Bid
+		var prev *model.Bid
 		if auction.HighestBidID != nil {
-			var p repository.Bid
+			var p model.Bid
 			if err := tx.First(&p, *auction.HighestBidID).Error; err != nil {
 				return notFoundOr(err, "load highest bid")
 			}
@@ -113,24 +113,24 @@ func (s *AuctionService) PlaceBid(ctx context.Context, auctionID, bidderGuildID 
 		}
 
 		// Reserve the new bidder's funds, then release the outbid leader.
-		if err := s.wallets.ReserveTx(tx, bidderGuildID, amount, repository.RefBid, auctionID); err != nil {
+		if err := s.wallets.ReserveTx(tx, bidderGuildID, amount, model.RefBid, auctionID); err != nil {
 			return err
 		}
 		if prev != nil {
-			if err := s.wallets.ReleaseTx(tx, prev.BidderGuildID, prev.Amount, repository.RefBid, auctionID); err != nil {
+			if err := s.wallets.ReleaseTx(tx, prev.BidderGuildID, prev.Amount, model.RefBid, auctionID); err != nil {
 				return err
 			}
-			prev.Status = repository.BidReleased
+			prev.Status = model.BidReleased
 			if err := tx.Save(prev).Error; err != nil {
 				return fmt.Errorf("release previous bid: %w", err)
 			}
 		}
 
-		bid = repository.Bid{
+		bid = model.Bid{
 			AuctionID:     auctionID,
 			BidderGuildID: bidderGuildID,
 			Amount:        amount,
-			Status:        repository.BidActive,
+			Status:        model.BidActive,
 			CreatedAt:     now,
 		}
 		if err := tx.Create(&bid).Error; err != nil {
@@ -162,11 +162,11 @@ func (s *AuctionService) CancelBid(ctx context.Context, auctionID, bidID, bidder
 		if err != nil {
 			return err
 		}
-		if auction.Status != repository.AuctionActive {
+		if auction.Status != model.AuctionActive {
 			return ErrAuctionNotActive
 		}
 
-		var bid repository.Bid
+		var bid model.Bid
 		if err := tx.First(&bid, bidID).Error; err != nil {
 			return notFoundOr(err, "load bid")
 		}
@@ -179,12 +179,12 @@ func (s *AuctionService) CancelBid(ctx context.Context, auctionID, bidID, bidder
 			return err
 		}
 
-		if bid.Status == repository.BidActive {
-			if err := s.wallets.ReleaseTx(tx, bidderGuildID, bid.Amount, repository.RefBid, auctionID); err != nil {
+		if bid.Status == model.BidActive {
+			if err := s.wallets.ReleaseTx(tx, bidderGuildID, bid.Amount, model.RefBid, auctionID); err != nil {
 				return err
 			}
 		}
-		bid.Status = repository.BidCancelled
+		bid.Status = model.BidCancelled
 		if err := tx.Save(&bid).Error; err != nil {
 			return fmt.Errorf("cancel bid: %w", err)
 		}
@@ -198,8 +198,8 @@ func (s *AuctionService) CancelBid(ctx context.Context, auctionID, bidID, bidder
 func (s *AuctionService) SettleDue(ctx context.Context) (int, error) {
 	var ids []uint64
 	if err := s.db.WithContext(ctx).
-		Model(&repository.Auction{}).
-		Where("status = ? AND ends_at <= ?", repository.AuctionActive, s.now()).
+		Model(&model.Auction{}).
+		Where("status = ? AND ends_at <= ?", model.AuctionActive, s.now()).
 		Pluck("id", &ids).Error; err != nil {
 		return 0, fmt.Errorf("find due auctions: %w", err)
 	}
@@ -228,7 +228,7 @@ func (s *AuctionService) SettleAuction(ctx context.Context, auctionID uint64) (b
 		if err != nil {
 			return err
 		}
-		if auction.Status != repository.AuctionActive {
+		if auction.Status != model.AuctionActive {
 			return nil // already settled/cancelled — idempotent no-op
 		}
 		if !AuctionEnded(s.now(), auction.EndsAt) {
@@ -241,20 +241,20 @@ func (s *AuctionService) SettleAuction(ctx context.Context, auctionID uint64) (b
 		}
 
 		if auction.HighestBidID != nil {
-			var win repository.Bid
+			var win model.Bid
 			if err := tx.First(&win, *auction.HighestBidID).Error; err != nil {
 				return notFoundOr(err, "load winning bid")
 			}
 			// Winner pays out of the funds reserved at bid time; seller is paid.
-			if err := s.wallets.SettleReservedTx(tx, win.BidderGuildID, win.Amount, repository.RefAuction, auctionID); err != nil {
+			if err := s.wallets.SettleReservedTx(tx, win.BidderGuildID, win.Amount, model.RefAuction, auctionID); err != nil {
 				return err
 			}
-			if err := s.wallets.CreditTx(tx, auction.SellerGuildID, win.Amount, repository.RefAuction, auctionID); err != nil {
+			if err := s.wallets.CreditTx(tx, auction.SellerGuildID, win.Amount, model.RefAuction, auctionID); err != nil {
 				return err
 			}
 			item.OwnerGuildID = win.BidderGuildID
-			item.Status = repository.ItemAvailable
-			win.Status = repository.BidWon
+			item.Status = model.ItemAvailable
+			win.Status = model.BidWon
 			if err := tx.Save(&win).Error; err != nil {
 				return fmt.Errorf("mark bid won: %w", err)
 			}
@@ -262,10 +262,10 @@ func (s *AuctionService) SettleAuction(ctx context.Context, auctionID uint64) (b
 			auction.WinnerGuildID = &winner
 		} else {
 			// No bids: the legendary is available again.
-			item.Status = repository.ItemAvailable
+			item.Status = model.ItemAvailable
 		}
 
-		auction.Status = repository.AuctionSettled
+		auction.Status = model.AuctionSettled
 		auction.UpdatedAt = s.now()
 		if err := tx.Save(item).Error; err != nil {
 			return fmt.Errorf("update item: %w", err)
@@ -281,10 +281,10 @@ func (s *AuctionService) SettleAuction(ctx context.Context, auctionID uint64) (b
 
 // ActiveAuctionByItem returns the current active auction for an item, or
 // ErrNotFound if the item has no active auction.
-func (s *AuctionService) ActiveAuctionByItem(ctx context.Context, itemID uint64) (*repository.Auction, error) {
-	var a repository.Auction
+func (s *AuctionService) ActiveAuctionByItem(ctx context.Context, itemID uint64) (*model.Auction, error) {
+	var a model.Auction
 	err := s.db.WithContext(ctx).
-		Where("item_id = ? AND status = ?", itemID, repository.AuctionActive).
+		Where("item_id = ? AND status = ?", itemID, model.AuctionActive).
 		Order("id DESC").
 		First(&a).Error
 	if err != nil {
@@ -294,10 +294,10 @@ func (s *AuctionService) ActiveAuctionByItem(ctx context.Context, itemID uint64)
 }
 
 // ListActiveAuctions returns all currently active auctions, newest first.
-func (s *AuctionService) ListActiveAuctions(ctx context.Context) ([]repository.Auction, error) {
-	var auctions []repository.Auction
+func (s *AuctionService) ListActiveAuctions(ctx context.Context) ([]model.Auction, error) {
+	var auctions []model.Auction
 	if err := s.db.WithContext(ctx).
-		Where("status = ?", repository.AuctionActive).
+		Where("status = ?", model.AuctionActive).
 		Order("id DESC").
 		Find(&auctions).Error; err != nil {
 		return nil, fmt.Errorf("list active auctions: %w", err)
@@ -306,7 +306,7 @@ func (s *AuctionService) ListActiveAuctions(ctx context.Context) ([]repository.A
 }
 
 // PlaceBidOnItem resolves the item's active auction and places a bid on it.
-func (s *AuctionService) PlaceBidOnItem(ctx context.Context, itemID, bidderGuildID uint64, amount int64) (*repository.Bid, error) {
+func (s *AuctionService) PlaceBidOnItem(ctx context.Context, itemID, bidderGuildID uint64, amount int64) (*model.Bid, error) {
 	a, err := s.ActiveAuctionByItem(ctx, itemID)
 	if err != nil {
 		return nil, err
@@ -324,8 +324,8 @@ func (s *AuctionService) CancelBidOnItem(ctx context.Context, itemID, bidID, bid
 }
 
 // GetAuction returns an auction by ID.
-func (s *AuctionService) GetAuction(ctx context.Context, auctionID uint64) (*repository.Auction, error) {
-	var a repository.Auction
+func (s *AuctionService) GetAuction(ctx context.Context, auctionID uint64) (*model.Auction, error) {
+	var a model.Auction
 	if err := s.db.WithContext(ctx).First(&a, auctionID).Error; err != nil {
 		return nil, notFoundOr(err, "load auction")
 	}
@@ -333,7 +333,7 @@ func (s *AuctionService) GetAuction(ctx context.Context, auctionID uint64) (*rep
 }
 
 // HighestBid returns the current highest (active) bid, or nil if none.
-func (s *AuctionService) HighestBid(ctx context.Context, auctionID uint64) (*repository.Bid, error) {
+func (s *AuctionService) HighestBid(ctx context.Context, auctionID uint64) (*model.Bid, error) {
 	a, err := s.GetAuction(ctx, auctionID)
 	if err != nil {
 		return nil, err
@@ -341,7 +341,7 @@ func (s *AuctionService) HighestBid(ctx context.Context, auctionID uint64) (*rep
 	if a.HighestBidID == nil {
 		return nil, nil
 	}
-	var b repository.Bid
+	var b model.Bid
 	if err := s.db.WithContext(ctx).First(&b, *a.HighestBidID).Error; err != nil {
 		return nil, notFoundOr(err, "load highest bid")
 	}
@@ -349,8 +349,8 @@ func (s *AuctionService) HighestBid(ctx context.Context, auctionID uint64) (*rep
 }
 
 // ListBids returns an auction's bids, newest first.
-func (s *AuctionService) ListBids(ctx context.Context, auctionID uint64) ([]repository.Bid, error) {
-	var bids []repository.Bid
+func (s *AuctionService) ListBids(ctx context.Context, auctionID uint64) ([]model.Bid, error) {
+	var bids []model.Bid
 	if err := s.db.WithContext(ctx).
 		Where("auction_id = ?", auctionID).
 		Order("created_at DESC, id DESC").
@@ -361,8 +361,8 @@ func (s *AuctionService) ListBids(ctx context.Context, auctionID uint64) ([]repo
 }
 
 // lockAuction loads and row-locks an auction.
-func lockAuction(tx *gorm.DB, auctionID uint64) (*repository.Auction, error) {
-	var a repository.Auction
+func lockAuction(tx *gorm.DB, auctionID uint64) (*model.Auction, error) {
+	var a model.Auction
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&a, auctionID).Error; err != nil {
 		return nil, notFoundOr(err, "lock auction")
 	}

@@ -13,7 +13,7 @@ import (
 	"github.com/herotech/market-dragon/internal/config"
 	"github.com/herotech/market-dragon/internal/infra/database"
 	"github.com/herotech/market-dragon/internal/infra/oracle"
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 const orItem = 9310
@@ -38,7 +38,7 @@ func setupOracle(t *testing.T) *gorm.DB {
 func countPrices(t *testing.T, db *gorm.DB) int64 {
 	t.Helper()
 	var n int64
-	db.Model(&repository.OraclePrice{}).Where("item_id = ?", orItem).Count(&n)
+	db.Model(&model.OraclePrice{}).Where("item_id = ?", orItem).Count(&n)
 	return n
 }
 

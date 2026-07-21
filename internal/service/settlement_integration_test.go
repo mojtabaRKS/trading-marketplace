@@ -9,21 +9,21 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 func expireAuction(t *testing.T, db *gorm.DB, auctionID uint64) {
 	t.Helper()
-	if err := db.Model(&repository.Auction{}).
+	if err := db.Model(&model.Auction{}).
 		Where("id = ?", auctionID).
 		Update("ends_at", time.Now().Add(-time.Hour)).Error; err != nil {
 		t.Fatalf("expire auction: %v", err)
 	}
 }
 
-func walletOf(t *testing.T, db *gorm.DB, guildID uint64) repository.Wallet {
+func walletOf(t *testing.T, db *gorm.DB, guildID uint64) model.Wallet {
 	t.Helper()
-	var w repository.Wallet
+	var w model.Wallet
 	if err := db.Where("guild_id = ?", guildID).First(&w).Error; err != nil {
 		t.Fatalf("load wallet %d: %v", guildID, err)
 	}
@@ -70,15 +70,15 @@ func TestSettleAuctionWithWinner(t *testing.T) {
 		t.Fatalf("seller total = %d, want %d", seller.TotalBalance, bid)
 	}
 	// Item transferred and available again.
-	var item repository.Item
+	var item model.Item
 	db.First(&item, auItem)
-	if item.OwnerGuildID != auBidderA || item.Status != repository.ItemAvailable {
+	if item.OwnerGuildID != auBidderA || item.Status != model.ItemAvailable {
 		t.Fatalf("item owner=%d status=%s, want owner=%d available", item.OwnerGuildID, item.Status, auBidderA)
 	}
 	// Auction + bid marked terminal.
-	var got repository.Auction
+	var got model.Auction
 	db.First(&got, auction.ID)
-	if got.Status != repository.AuctionSettled || got.WinnerGuildID == nil || *got.WinnerGuildID != auBidderA {
+	if got.Status != model.AuctionSettled || got.WinnerGuildID == nil || *got.WinnerGuildID != auBidderA {
 		t.Fatalf("auction status=%s winner=%v, want settled winner=%d", got.Status, got.WinnerGuildID, auBidderA)
 	}
 
@@ -118,14 +118,14 @@ func TestSettleAuctionNoBids(t *testing.T) {
 		t.Fatal("expected auction to settle")
 	}
 
-	var item repository.Item
+	var item model.Item
 	db.First(&item, auItem)
-	if item.OwnerGuildID != auSeller || item.Status != repository.ItemAvailable {
+	if item.OwnerGuildID != auSeller || item.Status != model.ItemAvailable {
 		t.Fatalf("item owner=%d status=%s, want owner=%d available", item.OwnerGuildID, item.Status, auSeller)
 	}
-	var got repository.Auction
+	var got model.Auction
 	db.First(&got, auction.ID)
-	if got.Status != repository.AuctionSettled || got.WinnerGuildID != nil {
+	if got.Status != model.AuctionSettled || got.WinnerGuildID != nil {
 		t.Fatalf("auction status=%s winner=%v, want settled no-winner", got.Status, got.WinnerGuildID)
 	}
 }

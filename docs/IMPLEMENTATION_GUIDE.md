@@ -116,8 +116,8 @@ internal/
   config/               # viper config (DSN + DatabaseURL)
   api/                  # HTTP: Gin router + server start/stop
     middleware/         # Gin middlewares (logging, recovery, idempotency)
-  service/              # use-cases; owns database transactions
-  repository/           # data models + data access
+  service/              # use-cases; owns queries, writes, and transactions
+  model/                # data models + seed data (no data access logic)
   infra/
     database/           # GORM client (Open) + migration runner (Migrate)
     logging/            # slog logger setup
@@ -129,9 +129,10 @@ README.md
 docs/ADR.md
 ```
 
-The flow is `api → service → repository`. Models live in `repository/`. Put
-database transactions in the service layer. Enforce concurrency and uniqueness
-in the database (constraints and locks), not only in Go memory.
+The flow is `api → service → model`. Models live in `model/`, which
+holds no data-access logic. The service layer owns all queries, writes, and
+database transactions. Enforce concurrency and uniqueness in the database
+(constraints and locks), not only in Go memory.
 
 ---
 

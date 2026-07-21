@@ -23,8 +23,8 @@ internal/
   config/               # viper config (DSN + DatabaseURL)
   api/                  # HTTP: Gin router + server lifecycle
     middleware/         # all Gin middlewares (logging, recovery, idempotency, ...)
-  service/              # business/use-case layer; owns DB transaction boundaries
-  repository/           # persistence models + data-access repositories
+  service/              # business/use-case layer; owns queries, writes, and DB tx boundaries
+  model/                # persistence models + status constants + seed data (behaviour-free)
   infra/
     database/           # GORM client (Open) + migration runner (Migrate)
     logging/            # slog logger builder
@@ -34,8 +34,9 @@ docs/
 ```
 
 ## Rules
-- Flow is `api → service → repository`. Models live in `repository/`; the service layer never
-  imports `*gorm.DB`-touching SQL directly except via repositories / `Repositories.DB()` for tx.
+- Flow is `api → service → model`. Models live in `model/`, which is behaviour-free
+  (no repository abstraction over GORM). The `service/` layer owns all queries, writes, and
+  transaction boundaries, using `*gorm.DB` directly.
 - Put orchestration + DB transaction boundaries in `service/`.
 - Enforce concurrency/uniqueness invariants at the **DB level** (constraints + `SELECT ... FOR UPDATE`),
   never solely in Go memory.

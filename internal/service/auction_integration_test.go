@@ -13,7 +13,7 @@ import (
 
 	"github.com/herotech/market-dragon/internal/config"
 	"github.com/herotech/market-dragon/internal/infra/database"
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 const (
@@ -45,12 +45,12 @@ func setupAuction(t *testing.T) *gorm.DB {
 	db.Exec("DELETE FROM wallets WHERE guild_id IN ?", ids)
 	db.Exec("DELETE FROM guilds WHERE id IN ?", ids)
 
-	guilds := []repository.Guild{
+	guilds := []model.Guild{
 		{ID: auSeller, Name: "AU-Seller"},
 		{ID: auBidderA, Name: "AU-BidderA"},
 		{ID: auBidderB, Name: "AU-BidderB"},
 	}
-	wallets := []repository.Wallet{
+	wallets := []model.Wallet{
 		{ID: auSeller, GuildID: auSeller, TotalBalance: 0},
 		{ID: auBidderA, GuildID: auBidderA, TotalBalance: 1_000_000},
 		{ID: auBidderB, GuildID: auBidderB, TotalBalance: 1_000_000},
@@ -65,9 +65,9 @@ func setupAuction(t *testing.T) *gorm.DB {
 			t.Fatalf("create wallet: %v", err)
 		}
 	}
-	item := repository.Item{
-		ID: auItem, Name: "Dragon Blade", Tier: repository.TierLegendary,
-		OwnerGuildID: auSeller, Status: repository.ItemAvailable, Stock: 1,
+	item := model.Item{
+		ID: auItem, Name: "Dragon Blade", Tier: model.TierLegendary,
+		OwnerGuildID: auSeller, Status: model.ItemAvailable, Stock: 1,
 	}
 	if err := db.Create(&item).Error; err != nil {
 		t.Fatalf("create item: %v", err)
@@ -77,7 +77,7 @@ func setupAuction(t *testing.T) *gorm.DB {
 
 func reservedOf(t *testing.T, db *gorm.DB, guildID uint64) int64 {
 	t.Helper()
-	var w repository.Wallet
+	var w model.Wallet
 	if err := db.Where("guild_id = ?", guildID).First(&w).Error; err != nil {
 		t.Fatalf("load wallet %d: %v", guildID, err)
 	}
@@ -140,9 +140,9 @@ func TestAuctionBidFlow(t *testing.T) {
 	if err := svc.CancelBid(ctx, auction.ID, bidA.ID, auBidderA); err != nil {
 		t.Fatalf("cancel non-highest: %v", err)
 	}
-	var cancelled repository.Bid
+	var cancelled model.Bid
 	db.First(&cancelled, bidA.ID)
-	if cancelled.Status != repository.BidCancelled {
+	if cancelled.Status != model.BidCancelled {
 		t.Fatalf("bid A status = %s, want cancelled", cancelled.Status)
 	}
 }
@@ -190,12 +190,12 @@ func TestBidConcurrentConsistency(t *testing.T) {
 		t.Fatalf("low bidder reserved = %d, want 0 (no over-commit)", r)
 	}
 
-	var got repository.Auction
+	var got model.Auction
 	db.First(&got, auction.ID)
 	if got.HighestBidID == nil {
 		t.Fatal("auction has no highest bid")
 	}
-	var highest repository.Bid
+	var highest model.Bid
 	db.First(&highest, *got.HighestBidID)
 	if highest.BidderGuildID != auBidderB || highest.Amount != highBid {
 		t.Fatalf("highest bid = guild %d amount %d, want guild %d amount %d",
@@ -218,14 +218,14 @@ func TestAuctionAntiSnipeExtends(t *testing.T) {
 
 	// Force the auction to be ending in 2 minutes (inside the snipe window).
 	soon := time.Now().Add(2 * time.Minute)
-	db.Model(&repository.Auction{}).Where("id = ?", auction.ID).Update("ends_at", soon)
+	db.Model(&model.Auction{}).Where("id = ?", auction.ID).Update("ends_at", soon)
 
 	before := time.Now()
 	if _, err := svc.PlaceBid(ctx, auction.ID, auBidderA, 1000); err != nil {
 		t.Fatalf("bid: %v", err)
 	}
 
-	var got repository.Auction
+	var got model.Auction
 	db.First(&got, auction.ID)
 	// End time should now be ~ now + extension, i.e. well beyond the old 2 min.
 	if !got.EndsAt.After(before.Add(4 * time.Minute)) {

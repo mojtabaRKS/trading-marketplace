@@ -42,9 +42,11 @@ slog (logging) · Docker Compose.
 
 ## Architecture
 
-The code has three layers: `api → service → repository`.
-Shared clients live under `infra/`. Business rules live in `service/`.
-The most important safety rules are enforced by the database.
+The code has three layers: `api → service → model`.
+Shared clients live under `infra/`. Business rules live in `service/`, which also
+owns all database queries, writes, and transactions. The `model/` layer is
+behaviour-free: it holds only the models and seed data. The most important safety
+rules are enforced by the database.
 
 ```
 cmd/marketd/        CLI: serve | migrate | seed
@@ -53,8 +55,8 @@ internal/
   config/           config from env vars and .env
   api/              web router, handlers, server start/stop
     middleware/     logging, recovery, idempotency
-  service/          use-cases and rules; owns database transactions
-  repository/       database models, data access, seed data
+  service/          use-cases and rules; owns queries, writes, and transactions
+  model/            database models + seed data (no data-access logic)
   infra/
     database/       database client + migration runner
     logging/        logger setup

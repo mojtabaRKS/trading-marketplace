@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 // idempotencyHeader is the request header carrying the client-chosen key.
@@ -62,7 +62,7 @@ func Idempotency(db *gorm.DB, logger *slog.Logger) gin.HandlerFunc {
 		}
 		hash := requestHash(c.Request.Method, c.Request.URL.Path, body)
 
-		claim := repository.IdempotencyKey{
+		claim := model.IdempotencyKey{
 			Key:            key,
 			RequestHash:    hash,
 			ResponseStatus: 0, // 0 == in-flight
@@ -90,11 +90,11 @@ func Idempotency(db *gorm.DB, logger *slog.Logger) gin.HandlerFunc {
 		status := c.Writer.Status()
 		if status >= http.StatusInternalServerError {
 			// Transient failure: release the claim so the client may retry.
-			db.WithContext(c.Request.Context()).Delete(&repository.IdempotencyKey{}, "key = ?", key)
+			db.WithContext(c.Request.Context()).Delete(&model.IdempotencyKey{}, "key = ?", key)
 			return
 		}
 		if err := db.WithContext(c.Request.Context()).
-			Model(&repository.IdempotencyKey{}).
+			Model(&model.IdempotencyKey{}).
 			Where("key = ?", key).
 			Updates(map[string]any{
 				"response_status": status,
@@ -106,7 +106,7 @@ func Idempotency(db *gorm.DB, logger *slog.Logger) gin.HandlerFunc {
 }
 
 func replayExisting(c *gin.Context, db *gorm.DB, key, hash string) {
-	var existing repository.IdempotencyKey
+	var existing model.IdempotencyKey
 	if err := db.WithContext(c.Request.Context()).First(&existing, "key = ?", key).Error; err != nil {
 		// Row vanished between claim and read (rare). Treat as conflict.
 		c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": "idempotency key conflict"})

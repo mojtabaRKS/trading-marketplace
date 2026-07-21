@@ -14,9 +14,14 @@ import (
 	"github.com/herotech/market-dragon/internal/api/middleware"
 )
 
-// NewRouter builds the Gin engine, wiring middlewares and routes.
-func NewRouter(deps handler.Deps) *gin.Engine {
-	gin.SetMode(gin.ReleaseMode)
+// NewRouter builds the Gin engine, wiring middlewares and routes. When debug is
+// true Gin runs in debug mode (verbose logs + route dump); otherwise release.
+func NewRouter(deps handler.Deps, debug bool) *gin.Engine {
+	if debug {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	r := gin.New()
 	r.Use(middleware.Recovery())

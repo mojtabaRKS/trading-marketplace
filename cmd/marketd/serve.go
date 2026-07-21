@@ -15,7 +15,7 @@ import (
 	"github.com/herotech/market-dragon/internal/config"
 	"github.com/herotech/market-dragon/internal/infra/database"
 	"github.com/herotech/market-dragon/internal/infra/oracle"
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 	"github.com/herotech/market-dragon/internal/service"
 	"github.com/herotech/market-dragon/internal/worker"
 )
@@ -48,11 +48,8 @@ func runServe(ctx context.Context) error {
 		return fmt.Errorf("connect database: %w", err)
 	}
 
-	repos := repository.New(db)
-	_ = repos // reserved for future repository-backed services
-
 	if cfg.Seed {
-		if err := repository.Seed(db); err != nil {
+		if err := model.Seed(db); err != nil {
 			return fmt.Errorf("seed: %w", err)
 		}
 		logger.Info("seed data loaded")
@@ -72,7 +69,7 @@ func runServe(ctx context.Context) error {
 		Auctions: auctions,
 		Wallets:  wallets,
 		Oracle:   oracles,
-	})
+	}, cfg.AppDebug)
 	srv := api.NewServer(":"+cfg.HTTPPort, router, logger)
 
 	sigCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)

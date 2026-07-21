@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/herotech/market-dragon/internal/infra/oracle"
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 // OracleConfig controls price validation.
@@ -94,7 +94,7 @@ func (s *OracleService) Refresh(ctx context.Context) (int, error) {
 		}
 
 		now := s.now()
-		record := repository.OraclePrice{
+		record := model.OraclePrice{
 			ItemID:     p.ItemID,
 			Price:      p.Amount,
 			Source:     "oracle",

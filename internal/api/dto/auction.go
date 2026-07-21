@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/herotech/market-dragon/internal/repository"
+import "github.com/herotech/market-dragon/internal/model"
 
 // AuctionResponse is an auction record.
 type AuctionResponse struct {
@@ -35,7 +35,7 @@ type AuctionListResponse struct {
 }
 
 // NewAuctionResponse builds an AuctionResponse from a model.
-func NewAuctionResponse(a *repository.Auction) AuctionResponse {
+func NewAuctionResponse(a *model.Auction) AuctionResponse {
 	return AuctionResponse{
 		ID:            a.ID,
 		ItemID:        a.ItemID,
@@ -49,7 +49,7 @@ func NewAuctionResponse(a *repository.Auction) AuctionResponse {
 }
 
 // NewBidResponse builds a BidResponse from a model.
-func NewBidResponse(b *repository.Bid) BidResponse {
+func NewBidResponse(b *model.Bid) BidResponse {
 	return BidResponse{
 		ID:            b.ID,
 		AuctionID:     b.AuctionID,

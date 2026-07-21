@@ -15,6 +15,8 @@ type Config struct {
 	// HTTP server
 	HTTPPort        string
 	ShutdownTimeout time.Duration
+	// AppDebug puts Gin into debug mode (verbose logs, route dump). Off = release.
+	AppDebug bool
 
 	// Database
 	DBHost     string
@@ -72,6 +74,7 @@ func Load() (Config, error) {
 	return Config{
 		HTTPPort:         v.GetString("HTTP_PORT"),
 		ShutdownTimeout:  v.GetDuration("SHUTDOWN_TIMEOUT"),
+		AppDebug:         v.GetBool("APP_DEBUG"),
 		DBHost:           v.GetString("DB_HOST"),
 		DBPort:           v.GetString("DB_PORT"),
 		DBUser:           v.GetString("DB_USER"),
@@ -99,6 +102,7 @@ func Load() (Config, error) {
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("HTTP_PORT", "8080")
 	v.SetDefault("SHUTDOWN_TIMEOUT", "10s")
+	v.SetDefault("APP_DEBUG", false)
 	v.SetDefault("DB_HOST", "localhost")
 	v.SetDefault("DB_PORT", "5432")
 	v.SetDefault("DB_USER", "marketd")

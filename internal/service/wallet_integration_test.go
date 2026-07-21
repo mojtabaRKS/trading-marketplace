@@ -14,7 +14,7 @@ import (
 
 	"github.com/herotech/market-dragon/internal/config"
 	"github.com/herotech/market-dragon/internal/infra/database"
-	"github.com/herotech/market-dragon/internal/repository"
+	"github.com/herotech/market-dragon/internal/model"
 )
 
 const itGuildID = 9001
@@ -38,18 +38,18 @@ func setupWallet(t *testing.T, total int64) *gorm.DB {
 	db.Exec("DELETE FROM wallets WHERE guild_id = ?", itGuildID)
 	db.Exec("DELETE FROM guilds WHERE id = ?", itGuildID)
 
-	if err := db.Create(&repository.Guild{ID: itGuildID, Name: "IT-Wallet"}).Error; err != nil {
+	if err := db.Create(&model.Guild{ID: itGuildID, Name: "IT-Wallet"}).Error; err != nil {
 		t.Fatalf("create guild: %v", err)
 	}
-	if err := db.Create(&repository.Wallet{ID: itGuildID, GuildID: itGuildID, TotalBalance: total}).Error; err != nil {
+	if err := db.Create(&model.Wallet{ID: itGuildID, GuildID: itGuildID, TotalBalance: total}).Error; err != nil {
 		t.Fatalf("create wallet: %v", err)
 	}
 	return db
 }
 
-func loadWallet(t *testing.T, db *gorm.DB) repository.Wallet {
+func loadWallet(t *testing.T, db *gorm.DB) model.Wallet {
 	t.Helper()
-	var w repository.Wallet
+	var w model.Wallet
 	if err := db.Where("guild_id = ?", itGuildID).First(&w).Error; err != nil {
 		t.Fatalf("load wallet: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestWalletMovementsReconcile(t *testing.T) {
 		t.Fatalf("ledger reserved = %d, wallet reserved = %d", got, w.ReservedAmount)
 	}
 	// total == initial + credit - debit - settled(debit)
-	if got := initial + ledgerSum(t, db, repository.TxCredit) - ledgerSum(t, db, repository.TxDebit); got != w.TotalBalance {
+	if got := initial + ledgerSum(t, db, model.TxCredit) - ledgerSum(t, db, model.TxDebit); got != w.TotalBalance {
 		t.Fatalf("ledger total = %d, wallet total = %d", got, w.TotalBalance)
 	}
 }
@@ -155,15 +155,15 @@ func TestWalletReleaseExceedsReserved(t *testing.T) {
 func ledgerReserved(t *testing.T, db *gorm.DB) int64 {
 	t.Helper()
 	// reserved effect = reserve - release - settled(recorded as debit against auction).
-	return ledgerSum(t, db, repository.TxReserve) -
-		ledgerSum(t, db, repository.TxRelease) -
-		ledgerSumRef(t, db, repository.TxDebit, "auction")
+	return ledgerSum(t, db, model.TxReserve) -
+		ledgerSum(t, db, model.TxRelease) -
+		ledgerSumRef(t, db, model.TxDebit, "auction")
 }
 
 func ledgerSum(t *testing.T, db *gorm.DB, txType string) int64 {
 	t.Helper()
 	var sum int64
-	db.Model(&repository.WalletTransaction{}).
+	db.Model(&model.WalletTransaction{}).
 		Where("guild_id = ? AND type = ?", itGuildID, txType).
 		Select("COALESCE(SUM(amount),0)").Scan(&sum)
 	return sum
@@ -172,7 +172,7 @@ func ledgerSum(t *testing.T, db *gorm.DB, txType string) int64 {
 func ledgerSumRef(t *testing.T, db *gorm.DB, txType, refType string) int64 {
 	t.Helper()
 	var sum int64
-	db.Model(&repository.WalletTransaction{}).
+	db.Model(&model.WalletTransaction{}).
 		Where("guild_id = ? AND type = ? AND ref_type = ?", itGuildID, txType, refType).
 		Select("COALESCE(SUM(amount),0)").Scan(&sum)
 	return sum
